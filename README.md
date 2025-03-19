@@ -1,9 +1,9 @@
 # unifi-client
 
-[![Crates.io](https://img.shields.io/crates/v/unifi-client.svg)](https://crates.io/crates/unifi-client)
-[![Documentation](https://docs.rs/unifi-client/badge.svg)](https://docs.rs/unifi-client)
-[![License](https://img.shields.io/crates/l/unifi-client.svg)](./LICENSE)
-[![CI](https://github.com/fedibtc/unifi-client/workflows/CI/badge.svg)](https://github.com/fedibtc/unifi-client/actions)
+<!-- [![Crates.io](https://img.shields.io/crates/v/unifi-client.svg)](https://crates.io/crates/unifi-client) -->
+<!-- [![Documentation](https://docs.rs/unifi-client/badge.svg)](https://docs.rs/unifi-client) -->
+<!-- [![License](https://img.shields.io/crates/l/unifi-client.svg)](./LICENSE) -->
+<!-- [![CI](https://github.com/fedibtc/unifi-client/workflows/CI/badge.svg)](https://github.com/fedibtc/unifi-client/actions) -->
 
 A Rust client library for the Ubiquiti UniFi Controller API. This crate provides
 a type-safe, async interface for interacting with UniFi controllers.
