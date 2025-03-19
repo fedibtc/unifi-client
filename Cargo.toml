@@ -1,0 +1,26 @@
+[package]
+name = "unifi-client"
+version = "0.1.0"
+edition = "2021"
+authors = ["Frank Hinek <frankhinek@users.noreply.github.com>"]
+description = "Rust client library for UniFi Controller API"
+repository = "https://github.com/fedibtc/unifi-client"
+license = "MIT"
+keywords = ["unifi", "ubiquiti", "api", "client"]
+categories = ["api-bindings", "network-programming"]
+
+[dependencies]
+reqwest = { version = "0.11", features = ["json", "cookies"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+async-trait = "0.1"
+log = "0.4"
+url = "2.3"
+rpassword = "7.2"
+
+[dev-dependencies]
+wiremock = "0.5"
+tokio-test = "0.4"
+pretty_assertions = "1.3"
