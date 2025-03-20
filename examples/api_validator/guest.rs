@@ -113,6 +113,7 @@ impl GuestValidator {
             .raw_request("POST", &endpoint, Some(auth_payload))
             .await?;
 
+        // Get the list of guests
         let endpoint = format!("/api/s/{}/stat/guest", site);
         let response: Value = client.raw_request("GET", &endpoint, None::<()>).await?;
 

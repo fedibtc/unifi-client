@@ -196,7 +196,7 @@ impl VoucherValidator {
         let create_data = serde_json::json!({
             "cmd": "create-voucher",
             "n": 1,
-            "expire": 30,
+            "note": "data transfer limit test",
             "bytes": transfer_limit,
         });
 

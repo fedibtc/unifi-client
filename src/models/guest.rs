@@ -124,17 +124,18 @@ impl GuestConfigBuilder {
 /// - `id`: The unique identifier for this authorization
 /// - `authorized_by`: Who or what authorized the guest
 /// - `end`: When the authorization ends (Unix timestamp)
-/// - `expired`: Whether the authorization has expired
 /// - `mac`: The MAC address of the authorized guest
 /// - `site_id`: The site ID where this guest was authorized
 /// - `start`: When the authorization starts (Unix timestamp)
 ///
 /// Fields used by active guest entries:
 /// - `bytes`: The total data transfer limit in MB
+/// - `expired`: Whether the authorization has expired
 /// - `rx_bytes`: The total data received in MB
 /// - `tx_bytes`: The total data transmitted in MB
 ///
-/// Fields used by expired guest entries:
+/// Fields used by inactive guest entries:
+/// - `expired`: Whether the authorization has expired
 /// - `unauthorized_by`: Who or what unauthorized the guest
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
