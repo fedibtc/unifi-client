@@ -238,6 +238,7 @@ impl VoucherValidator {
     }
 
     pub async fn run_all_validations(&mut self) -> UnifiResult<()> {
+        println!("Running voucher validator...");
         self.validate_simple_duration().await?;
         self.validate_minutes_unit_duration().await?;
         self.validate_hours_unit_duration().await?;

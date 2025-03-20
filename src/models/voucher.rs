@@ -206,13 +206,6 @@ impl fmt::Display for VoucherStatus {
     }
 }
 
-/// Response from creating a voucher.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateVoucherResponse {
-    /// When the voucher was created (Unix timestamp).
-    pub create_time: u64,
-}
-
 /// Request to create a voucher.
 #[derive(Debug, Clone, Serialize)]
 pub struct CreateVoucherRequest {
@@ -258,44 +251,12 @@ pub struct CreateVoucherRequest {
     pub bytes: Option<u32>,
 }
 
-// impl CreateVoucherRequest {
-//     /// Create a new voucher creation request.
-//     pub fn new(count: u32, minutes: u32) -> Self {
-//         Self {
-//             cmd: "create-voucher".to_string(),
-//             n: count,
-//             minutes,
-//             note: None,
-//             up: None,
-//             down: None,
-//             bytes: None,
-//         }
-//     }
-
-//     /// Add a note to the voucher.
-//     pub fn with_note(mut self, note: impl Into<String>) -> Self {
-//         self.note = Some(note.into());
-//         self
-//     }
-
-//     /// Set the upload speed limit.
-//     pub fn with_upload_limit(mut self, kbps: u32) -> Self {
-//         self.up = Some(kbps);
-//         self
-//     }
-
-//     /// Set the download speed limit.
-//     pub fn with_download_limit(mut self, kbps: u32) -> Self {
-//         self.down = Some(kbps);
-//         self
-//     }
-
-//     /// Set the data quota (in MB).
-//     pub fn with_data_quota_mb(mut self, mb: u32) -> Self {
-//         self.bytes = Some(mb as u64 * 1024 * 1024);
-//         self
-//     }
-// }
+/// Response from creating a voucher.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateVoucherResponse {
+    /// When the voucher was created (Unix timestamp).
+    pub create_time: u64,
+}
 
 // /// Request to delete a voucher.
 // #[derive(Debug, Clone, Serialize)]

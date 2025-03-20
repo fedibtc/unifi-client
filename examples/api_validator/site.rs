@@ -30,6 +30,7 @@ impl SiteValidator {
     }
 
     pub async fn run_all_validations(&self) -> UnifiResult<()> {
+        println!("Running site validator...");
         self.validate_site_info().await?;
         Ok(())
     }
