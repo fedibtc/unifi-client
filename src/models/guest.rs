@@ -169,17 +169,43 @@ pub enum GuestEntry {
         // Optional field indicating if guest was explicitly unauthorized
         unauthorized_by: Option<String>,
     },
+    /// A newly authorized guest (response from authorize-guest command)
+    New {
+        #[serde(rename = "_id")]
+        id: String,
+        authorized_by: String,
+        end: u64,
+        mac: String,
+        site_id: String,
+        start: u64,
+    }
 }
 
 impl GuestEntry {
-    /// Returns true if the guest was explicitly unauthorized rather than just
-    /// expired
-    pub fn was_unauthorized(&self) -> bool {
+    /// Get who authorized the guest
+    pub fn authorized_by(&self) -> &str {
         match self {
-            GuestEntry::Active { .. } => false,
-            GuestEntry::Inactive {
-                unauthorized_by, ..
-            } => unauthorized_by.is_some(),
+            GuestEntry::Active { authorized_by, .. } => authorized_by,
+            GuestEntry::Inactive { authorized_by, .. } => authorized_by,
+            GuestEntry::New { authorized_by, .. } => authorized_by,
+        }
+    }
+
+    /// Get the unique identifier for the guest
+    pub fn id(&self) -> &str {
+        match self {
+            GuestEntry::Active { id, .. } => id,
+            GuestEntry::Inactive { id, .. } => id,
+            GuestEntry::New { id, .. } => id,
+        }
+    }
+
+    /// Returns true if the guest authorization has expired
+    pub fn is_expired(&self) -> bool {
+        match self {
+            GuestEntry::Active { expired, .. } => *expired,
+            GuestEntry::Inactive { expired, .. } => *expired,
+            GuestEntry::New { .. } => false,
         }
     }
 
@@ -188,6 +214,19 @@ impl GuestEntry {
         match self {
             GuestEntry::Active { mac, .. } => mac,
             GuestEntry::Inactive { mac, .. } => mac,
+            GuestEntry::New { mac, .. } => mac,
+        }
+    }
+
+    /// Returns true if the guest was explicitly unauthorized rather than just
+    /// expired
+    pub fn was_unauthorized(&self) -> bool {
+        match self {
+            GuestEntry::Active { .. } => false,
+            GuestEntry::Inactive {
+                unauthorized_by, ..
+            } => unauthorized_by.is_some(),
+            GuestEntry::New { .. } => false,
         }
     }
 }
