@@ -187,11 +187,62 @@ impl VoucherValidator {
         Ok(())
     }
 
+    async fn validate_data_transmit_limit(&self) -> UnifiResult<()> {
+        let mut client = self.client.clone();
+        
+        let transfer_limit = 1000; // Test with 1GB quota
+        
+        // Create a voucher with data quota
+        let create_data = serde_json::json!({
+            "cmd": "create-voucher",
+            "n": 1,
+            "expire": 30,
+            "bytes": transfer_limit,
+        });
+
+        let site = self.client.site();
+        let endpoint = format!("/api/s/{}/cmd/hotspot", site);
+        
+        // Make raw API call and extract create_time
+        let create_response = client.raw_request("POST", &endpoint, Some(create_data)).await?;
+        let create_time = create_response
+            .as_array()
+            .and_then(|arr| arr.first())
+            .and_then(|obj| obj.get("create_time"))
+            .and_then(|time| time.as_i64())
+            .ok_or_else(|| UnifiError::ApiError("Invalid create-voucher response format".into()))?;
+
+        // Validate the created voucher
+        let get_endpoint = format!("/api/s/{}/stat/voucher", site);
+        let get_data = serde_json::json!({
+            "create_time": create_time
+        });
+        
+        let vouchers: Value = client.raw_request("GET", &get_endpoint, Some(get_data)).await?;
+        
+        // Validate quota matches
+        if let Some(voucher) = vouchers.as_array().and_then(|v| v.first()) {
+            if let Some(quota) = voucher["qos_usage_quota"].as_u64() {
+                if quota == transfer_limit as u64 {
+                    println!("✅ Data quota test passed");
+                } else {
+                    println!("❌ Data quota test failed: expected {} MB, got {} MB", 
+                        transfer_limit, quota);
+                }
+            } else {
+                println!("❌ Data quota test failed: quota field not found or invalid type");
+            }
+        }
+        
+        Ok(())
+    }
+
     pub async fn run_all_validations(&mut self) -> UnifiResult<()> {
         self.validate_simple_duration().await?;
         self.validate_minutes_unit_duration().await?;
         self.validate_hours_unit_duration().await?;
         self.validate_voucher_note().await?;
+        self.validate_data_transmit_limit().await?;
         Ok(())
     }
 }
