@@ -1,0 +1,9 @@
+[package]
+name = "api_validator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["full"] }
+unifi-client = { path = "../../" }
