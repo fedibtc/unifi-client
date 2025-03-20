@@ -1,7 +1,10 @@
 use reqwest::Method;
 
-use crate::{UnifiClient, UnifiResult, Voucher};
 use super::ApiEndpoint;
+use crate::{
+    CreateVoucherRequest, CreateVoucherResponse, UnifiClient, UnifiError, UnifiResult, Voucher,
+    VoucherExpireUnit,
+};
 
 /// API for managing vouchers.
 pub struct VoucherApi<'a> {
@@ -19,17 +22,18 @@ impl<'a> VoucherApi<'a> {
     pub(crate) fn new(client: &'a UnifiClient) -> Self {
         Self { client }
     }
-    
+
     /// Create new vouchers.
     ///
     /// # Arguments
     ///
     /// * `count` - The number of vouchers to create.
-    /// * `minutes` - The duration of the vouchers in minutes.
+    /// * `minutes` - The duration the voucher is valid after activation in
+    ///   minutes.
     /// * `note` - An optional note to associate with the vouchers.
     /// * `up` - Optional upload speed limit in Kbps.
     /// * `down` - Optional download speed limit in Kbps.
-    /// * `mb_quota` - Optional data quota in MB.
+    /// * `mb_quota` - Optional data transfer limit in MB.
     ///
     /// # Returns
     ///
@@ -92,7 +96,7 @@ impl<'a> VoucherApi<'a> {
         
         Ok(vouchers)
     }
-    
+
     /// Delete a voucher by ID.
     ///
     /// # Arguments
@@ -100,38 +104,42 @@ impl<'a> VoucherApi<'a> {
     /// * `voucher_id` - The ID of the voucher to delete.
     pub async fn delete(&self, voucher_id: &str) -> UnifiResult<()> {
         let mut client = self.client.clone();
-        
+
         let delete_data = serde_json::json!({
             "cmd": "delete-voucher",
             "_id": voucher_id,
         });
-        
+
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/cmd/hotspot", site);
-        
-        let _: serde_json::Value = client.request(Method::POST, &endpoint, Some(delete_data)).await?;
-        
+
+        let _: serde_json::Value = client
+            .request(Method::POST, &endpoint, Some(delete_data))
+            .await?;
+
         Ok(())
     }
-    
+
     /// Delete all vouchers.
     pub async fn delete_all(&self) -> UnifiResult<()> {
         let vouchers = self.list().await?;
-        
+
         let mut client = self.client.clone();
-        
+
         for voucher in vouchers {
             let delete_data = serde_json::json!({
                 "cmd": "delete-voucher",
                 "_id": voucher.id,
             });
-            
+
             let site = self.client.site();
             let endpoint = format!("/api/s/{}/cmd/hotspot", site);
-            
-            let _: serde_json::Value = client.request(Method::POST, &endpoint, Some(delete_data)).await?;
+
+            let _: serde_json::Value = client
+                .request(Method::POST, &endpoint, Some(delete_data))
+                .await?;
         }
-        
+
         Ok(())
     }
 }

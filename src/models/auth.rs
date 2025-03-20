@@ -5,7 +5,7 @@ use serde::Serialize;
 pub struct LoginRequest {
     /// The username to authenticate with.
     pub username: String,
-    
+
     /// The password to authenticate with.
     pub password: String,
 }

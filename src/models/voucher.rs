@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 #[derive(Debug, Serialize, Deserialize)]
 /// A guest voucher.
@@ -117,25 +117,25 @@ impl fmt::Display for VoucherStatus {
 //             bytes: None,
 //         }
 //     }
-    
+
 //     /// Add a note to the voucher.
 //     pub fn with_note(mut self, note: impl Into<String>) -> Self {
 //         self.note = Some(note.into());
 //         self
 //     }
-    
+
 //     /// Set the upload speed limit.
 //     pub fn with_upload_limit(mut self, kbps: u32) -> Self {
 //         self.up = Some(kbps);
 //         self
 //     }
-    
+
 //     /// Set the download speed limit.
 //     pub fn with_download_limit(mut self, kbps: u32) -> Self {
 //         self.down = Some(kbps);
 //         self
 //     }
-    
+
 //     /// Set the data quota (in MB).
 //     pub fn with_data_quota_mb(mut self, mb: u32) -> Self {
 //         self.bytes = Some(mb as u64 * 1024 * 1024);
@@ -148,7 +148,7 @@ impl fmt::Display for VoucherStatus {
 // pub struct DeleteVoucherRequest {
 //     /// Command to delete a voucher.
 //     pub cmd: String,
-    
+
 //     /// The ID of the voucher to delete.
 //     #[serde(rename = "_id")]
 //     pub id: String,

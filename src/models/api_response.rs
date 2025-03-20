@@ -5,7 +5,7 @@ use serde::Deserialize;
 pub struct ApiResponse<T> {
     /// Metadata about the response.
     pub meta: ApiMeta,
-    
+
     /// The actual data returned, if any.
     pub data: Option<T>,
 }
@@ -15,7 +15,7 @@ pub struct ApiResponse<T> {
 pub struct ApiMeta {
     /// Result code. "ok" indicates success.
     pub rc: String,
-    
+
     /// Error message, if any.
     pub msg: Option<String>,
 }

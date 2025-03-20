@@ -58,11 +58,11 @@ mod error;
 mod models;
 
 // Public exports
-pub use api::voucher::VoucherApi;
 pub use api::site::SiteApi;
-pub use client::{UnifiClient, ClientConfig};
+pub use api::voucher::VoucherApi;
+pub use client::{ClientConfig, UnifiClient};
 pub use error::{UnifiError, UnifiResult};
-pub use models::voucher::{Voucher, VoucherStatus};
-pub use models::site::{Site, SiteStats};
+pub use models::api_response::{ApiMeta, ApiResponse, EmptyResponse};
 pub use models::auth::LoginRequest;
-pub use models::api_response::{ApiResponse, ApiMeta, EmptyResponse};
+pub use models::site::{Site, SiteStats};
+pub use models::voucher::{CreateVoucherRequest, CreateVoucherResponse, Voucher, VoucherExpireUnit, VoucherStatus};
