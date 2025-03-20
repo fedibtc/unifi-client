@@ -181,6 +181,14 @@ impl GuestEntry {
             } => unauthorized_by.is_some(),
         }
     }
+
+    /// Get the MAC address of the guest
+    pub fn mac(&self) -> &str {
+        match self {
+            GuestEntry::Active { mac, .. } => mac,
+            GuestEntry::Inactive { mac, .. } => mac,
+        }
+    }
 }
 
 /// Request to unauthorize a guest.
