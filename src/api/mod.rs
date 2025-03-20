@@ -1,4 +1,5 @@
 // Export submodules
+pub mod guest;
 pub mod site;
 pub mod voucher;
 

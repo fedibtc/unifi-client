@@ -5,5 +5,6 @@
 // Export submodules
 pub mod api_response;
 pub mod auth;
+pub mod guest;
 pub mod site;
 pub mod voucher;

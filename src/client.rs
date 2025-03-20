@@ -10,7 +10,8 @@ use serde_json::Value;
 use url::Url;
 
 use crate::{
-    ApiResponse, EmptyResponse, LoginRequest, SiteApi, UnifiError, UnifiResult, VoucherApi,
+    ApiResponse, EmptyResponse, GuestApi, LoginRequest, SiteApi, UnifiError, UnifiResult,
+    VoucherApi,
 };
 
 /// Configuration for the UniFi client.
@@ -407,9 +408,14 @@ impl UnifiClient {
         }
     }
 
-    /// Get the voucher API.
-    pub fn vouchers(&self) -> VoucherApi {
-        VoucherApi::new(self)
+    /// Get the current site ID.
+    pub fn site(&self) -> &str {
+        &self.config.site
+    }
+
+    /// Get the guest API.
+    pub fn guests(&self) -> GuestApi {
+        GuestApi::new(self)
     }
 
     /// Get the site API.
@@ -417,9 +423,9 @@ impl UnifiClient {
         SiteApi::new(self)
     }
 
-    /// Get the current site ID.
-    pub fn site(&self) -> &str {
-        &self.config.site
+    /// Get the voucher API.
+    pub fn vouchers(&self) -> VoucherApi {
+        VoucherApi::new(self)
     }
 }
 

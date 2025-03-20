@@ -1,11 +1,15 @@
 use clap::{Parser, Subcommand};
+
 use unifi_client::{ClientConfig, UnifiClient, UnifiResult};
 
-mod voucher;
+mod guest;
 mod site;
+mod voucher;
+mod utils;
 
-use voucher::VoucherValidator;
+use guest::GuestValidator;
 use site::SiteValidator;
+use voucher::VoucherValidator;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -25,9 +29,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Voucher,
-    Site,
     All,
+    Guest,
+    Site,
+    Voucher,
 }
 
 #[tokio::main]
@@ -49,24 +54,26 @@ async fn main() -> UnifiResult<()> {
 
     match cli.command.unwrap_or(Commands::All) {
         Commands::Voucher => {
-            println!("Running voucher validator...");
             let mut validator = VoucherValidator::new(client);
             validator.run_all_validations().await?;
         }
         Commands::Site => {
-            println!("Running site validator...");
             let validator = SiteValidator::new(client);
+            validator.run_all_validations().await?;
+        }
+        Commands::Guest => {
+            let validator = GuestValidator::new(client);
             validator.run_all_validations().await?;
         }
         Commands::All => {
             println!("Running all validators...");
-            println!("Running voucher validator...");
             let mut voucher_validator = VoucherValidator::new(client.clone());
-            println!("Running site validator...");
             let site_validator = SiteValidator::new(client.clone());
+            let guest_validator = GuestValidator::new(client.clone());
             
             voucher_validator.run_all_validations().await?;
             site_validator.run_all_validations().await?;
+            guest_validator.run_all_validations().await?;
         }
     }
 

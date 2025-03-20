@@ -65,12 +65,14 @@ mod error;
 mod models;
 
 // Public exports
+pub use api::guest::GuestApi;
 pub use api::site::SiteApi;
 pub use api::voucher::VoucherApi;
 pub use client::{ClientConfig, UnifiClient};
 pub use error::{UnifiError, UnifiResult};
 pub use models::api_response::{ApiMeta, ApiResponse, EmptyResponse};
 pub use models::auth::LoginRequest;
+pub use models::guest::{AuthorizeGuestRequest, GuestConfig, GuestEntry, UnauthorizeGuestRequest};
 pub use models::site::{Site, SiteStats};
 pub use models::voucher::{
     CreateVoucherRequest, CreateVoucherResponse, Voucher, VoucherConfig, VoucherExpireUnit,
