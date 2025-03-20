@@ -45,56 +45,38 @@ impl<'a> VoucherApi<'a> {
         note: Option<String>,
         up: Option<u32>,
         down: Option<u32>,
-        mb_quota: Option<u32>,
-    ) -> UnifiResult<Vec<Voucher>> {
+        transfer_limit: Option<u32>,
+    ) -> UnifiResult<CreateVoucherResponse> {
         let mut client = self.client.clone();
-        
-        let mut create_data = serde_json::json!({
-            "cmd": "create-voucher",
-            "n": count,
-            "minutes": minutes,
-        });
-        
-        if let Some(note_text) = note {
-            create_data["note"] = serde_json::Value::String(note_text);
-        }
-        
-        if let Some(up_limit) = up {
-            create_data["up"] = serde_json::Value::Number(up_limit.into());
-        }
-        
-        if let Some(down_limit) = down {
-            create_data["down"] = serde_json::Value::Number(down_limit.into());
-        }
-        
-        if let Some(quota) = mb_quota {
-            create_data["bytes"] = serde_json::Value::Number((quota * 1024 * 1024).into());
-        }
-        
+
+        let create_data = CreateVoucherRequest {
+            cmd: "create-voucher".to_string(),
+            n: count,
+            expire: Some(minutes),
+            expire_number: Some(1),
+            expire_unit: Some(VoucherExpireUnit::Minutes),
+            quota: Some(1),
+            note,
+            up,
+            down,
+            bytes: transfer_limit,
+        };
+
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/cmd/hotspot", site);
-        
-        // First, we create the voucher
-        let _: serde_json::Value = client.request(Method::POST, &endpoint, Some(create_data)).await?;
-        
-        // Then we retrieve the list to get the newly created vouchers
-        self.list().await
-    }
-    
-    /// List all vouchers.
-    ///
-    /// # Returns
-    ///
-    /// A vector of all vouchers.
-    pub async fn list(&self) -> UnifiResult<Vec<Voucher>> {
-        let mut client = self.client.clone();
-        
-        let site = self.client.site();
-        let endpoint = format!("/api/s/{}/stat/voucher", site);
-        
-        let vouchers: Vec<Voucher> = client.request(Method::GET, &endpoint, None::<()>).await?;
-        
-        Ok(vouchers)
+
+        // Create the voucher and get the response
+        let response: Vec<CreateVoucherResponse> = client
+            .request(Method::POST, &endpoint, Some(create_data))
+            .await?;
+
+        // Extract the first (and likely only) create voucher response
+        match response.first() {
+            Some(create_response) => Ok(create_response.clone()),
+            None => Err(UnifiError::ApiError(
+                "No create voucher response received".to_string(),
+            )),
+        }
     }
 
     /// Delete a voucher by ID.
@@ -141,5 +123,50 @@ impl<'a> VoucherApi<'a> {
         }
 
         Ok(())
+    }
+
+    /// Get vouchers filtered by creation time
+    ///
+    /// # Arguments
+    ///
+    /// * `create_time` - Unix timestamp to filter vouchers by creation time
+    ///
+    /// # Returns
+    ///
+    /// A vector of vouchers created at the specified time
+    pub async fn get_by_create_time(&self, create_time: u64) -> UnifiResult<Vec<Voucher>> {
+        let mut client = self.client.clone();
+
+        let site = self.client.site();
+        let endpoint = format!("/api/s/{}/stat/voucher", site);
+
+        // Create payload with create_time parameter using json! macro
+        let payload = serde_json::json!({
+            "create_time": create_time
+        });
+
+        // Make the request
+        let vouchers: Vec<Voucher> = client
+            .request(Method::GET, &endpoint, Some(payload))
+            .await?;
+
+        Ok(vouchers)
+    }
+
+    /// List all vouchers.
+    ///
+    /// # Returns
+    ///
+    /// A vector of all vouchers.
+    pub async fn list(&self) -> UnifiResult<Vec<Voucher>> {
+        let mut client = self.client.clone();
+
+        let site = self.client.site();
+        let endpoint = format!("/api/s/{}/stat/voucher", site);
+
+        let vouchers: Vec<Voucher> = client.request(Method::GET, &endpoint,
+        None::<()>).await?;
+
+        Ok(vouchers)
     }
 }

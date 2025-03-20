@@ -1,49 +1,60 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-#[derive(Debug, Serialize, Deserialize)]
-/// A guest voucher.
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+/// A voucher is a code that allows a guest to connect to the network for a
+/// limited time or with a data quota.
 pub struct Voucher {
     /// The unique identifier for this voucher.
     #[serde(rename = "_id")]
     pub id: String,
-    
-    /// When the voucher was created (Unix timestamp).
-    pub create_time: u64,
-    
+
+    /// Name of the admin who created the voucher.
+    pub admin_name: Option<String>,
+
     /// The voucher code that guests will enter.
     pub code: String,
-    
-    /// The number of times this voucher can be used.
-    pub quota: u32,
-    
+
+    /// When the voucher was created (Unix timestamp).
+    pub create_time: u64,
+
     /// The duration of the voucher in minutes.
     pub duration: u32,
-    
-    /// How many times this voucher has been used.
-    pub used: u32,
-    
+
+    /// Whether this voucher is for a hotspot.
+    pub for_hotspot: Option<bool>,
+
     /// Optional note associated with this voucher.
     pub note: Option<String>,
-    
-    /// The current status of the voucher.
-    pub status: VoucherStatus,
-    
+
+    /// Whether QoS settings override default settings.
+    pub qos_overwrite: Option<bool>,
+
     /// Maximum download speed in Kbps, if set.
-    #[serde(rename = "qos_rate_max_down")]
-    pub rate_max_down: Option<u32>,
-    
+    pub qos_rate_max_down: Option<u32>,
+
     /// Maximum upload speed in Kbps, if set.
-    #[serde(rename = "qos_rate_max_up")]
-    pub rate_max_up: Option<u32>,
-    
-    /// Data quota in bytes, if set.
-    pub bytes_quota: Option<u64>,
-    
-    /// When the voucher was last used (Unix timestamp).
-    pub last_used_time: Option<u64>,
-    
+    pub qos_rate_max_up: Option<u32>,
+
+    /// Data transfer limit in megabytes, if set.
+    pub qos_usage_quota: Option<u64>,
+
+    /// The number of times this voucher can be used.
+    /// Value '0' is for multi-use, '1' is for single-use, and
+    /// 'n' is for multi-use n times
+    pub quota: u32,
+
     /// The site ID where this voucher was created.
     pub site_id: Option<String>,
+
+    /// The current status of the voucher.
+    pub status: VoucherStatus,
+
+    /// When the voucher expires (Unix timestamp), 0 if not yet used.
+    pub status_expires: Option<u64>,
+
+    /// How many times this voucher has been used.
+    pub used: u32,
 }
 
 impl fmt::Display for Voucher {
@@ -52,16 +63,36 @@ impl fmt::Display for Voucher {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Serialize)]
+#[serde(into = "u32")]
+pub enum VoucherExpireUnit {
+    Seconds,
+    Minutes,
+    Hours,
+}
+
+impl From<VoucherExpireUnit> for u32 {
+    fn from(unit: VoucherExpireUnit) -> u32 {
+        match unit {
+            VoucherExpireUnit::Seconds => 1,
+            VoucherExpireUnit::Minutes => 60,
+            VoucherExpireUnit::Hours => 3600,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum VoucherStatus {
     /// The voucher is valid and has not been used.
+    #[serde(rename = "VALID_ONE")]
     Valid,
-    
+
     /// The voucher has been used.
+    #[serde(rename = "USED")]
     Used,
-    
+
     /// The voucher has expired.
+    #[serde(rename = "EXPIRED")]
     Expired,
 }
 
@@ -75,34 +106,57 @@ impl fmt::Display for VoucherStatus {
     }
 }
 
-// /// Request to create a voucher.
-// #[derive(Debug, Clone, Serialize)]
-// pub struct CreateVoucherRequest {
-//     /// Command to create a voucher.
-//     pub cmd: String,
-    
-//     /// Number of vouchers to create.
-//     pub n: u32,
-    
-//     /// Duration in minutes.
-//     pub minutes: u32,
-    
-//     /// Optional note.
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     pub note: Option<String>,
-    
-//     /// Optional upload limit in Kbps.
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     pub up: Option<u32>,
-    
-//     /// Optional download limit in Kbps.
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     pub down: Option<u32>,
-    
-//     /// Optional data quota in bytes.
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     pub bytes: Option<u64>,
-// }
+/// Response from creating a voucher.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateVoucherResponse {
+    /// When the voucher was created (Unix timestamp).
+    pub create_time: u64,
+}
+
+/// Request to create a voucher.
+#[derive(Debug, Clone, Serialize)]
+pub struct CreateVoucherRequest {
+    /// Command to create a voucher.
+    pub cmd: String,
+
+    /// Number of vouchers to create.
+    pub n: u32,
+
+    /// Duration the voucher is valid after activation in minutes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expire: Option<u32>,
+
+    /// Duration the voucher is valid after activation per expire_unit.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expire_number: Option<u32>,
+
+    /// Unit of time for the duration the voucher is valid after activation.
+    /// Valid values are: 1 (minute), 60 (hour), 3600 (day)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expire_unit: Option<VoucherExpireUnit>,
+
+    /// Optional single-use or multi-use.
+    /// Value '0' is for multi-use, '1' is for single-use, and
+    /// 'n' is for multi-use n times
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quota: Option<u32>,
+
+    /// Optional note.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+
+    /// Optional upload limit in Kbps.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub up: Option<u32>,
+
+    /// Optional download limit in Kbps.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub down: Option<u32>,
+
+    /// Optional data transfer limit in megabytes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bytes: Option<u32>,
+}
 
 // impl CreateVoucherRequest {
 //     /// Create a new voucher creation request.
