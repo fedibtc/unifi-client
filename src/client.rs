@@ -261,6 +261,72 @@ impl UnifiClient {
         Ok(())
     }
 
+    /// Make a raw request to the UniFi API.
+    /// 
+    /// # Warning
+    /// This is an advanced API that bypasses the type-safe wrappers.
+    /// Use the typed API methods (like `vouchers()`, `sites()`) when possible.
+    /// 
+    /// # Arguments
+    /// * `method` - The HTTP method to use
+    /// * `endpoint` - The API endpoint path
+    /// * `body` - Optional request body
+    /// 
+    /// # Returns
+    /// The raw JSON response
+    pub async fn raw_request<T>(
+        &mut self,
+        method: &str,
+        endpoint: &str,
+        body: Option<T>,
+    ) -> UnifiResult<Value>
+    where
+        T: Serialize,
+    {
+        self.ensure_authenticated().await?;
+
+        let auth_state = self.auth_state.as_ref().unwrap();
+        let url = self.config.controller_url.join(endpoint)?;
+
+        let mut request = self.http_client.request(
+            Method::from_bytes(method.as_bytes()).unwrap_or(Method::GET),
+            url,
+        );
+
+        // Add cookies and CSRF token
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            COOKIE,
+            HeaderValue::from_str(&auth_state.cookies)
+                .map_err(|e| UnifiError::ApiError(format!("Invalid cookie header: {}", e)))?,
+        );
+
+        if let Some(token) = &auth_state.csrf_token {
+            headers.insert(
+                "x-csrf-token",
+                HeaderValue::from_str(token)
+                    .map_err(|e| UnifiError::ApiError(format!("Invalid CSRF token: {}", e)))?,
+            );
+        }
+
+        request = request.headers(headers);
+
+        if let Some(data) = body {
+            request = request.json(&data).header(CONTENT_TYPE, "application/json");
+        }
+
+        let response = request.send().await?;
+        let api_response: ApiResponse<Value> = response.json().await?;
+
+        if api_response.meta.rc != "ok" {
+            return Err(UnifiError::ApiError(
+                api_response.meta.msg.unwrap_or_else(|| "Unknown API error".into()),
+            ));
+        }
+
+        Ok(api_response.data.unwrap_or(Value::Null))
+    }
+
     /// Make a request to the UniFi API.
     pub(crate) async fn request<T, R>(
         &mut self,
