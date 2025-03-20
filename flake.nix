@@ -2,26 +2,30 @@
   description = "Rust development environment";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs = {
+      url = "github:nixos/nixpkgs/nixos-24.11";
+    };
     flake-utils.url = "github:numtide/flake-utils";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
           inherit system;
+          overlays = [ rust-overlay.overlays.default ];
         };
       in
       {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            cargo
-            clippy
-            rust-analyzer
-            rustc
-            rustfmt
-            rustPlatform.rustLibSrc
+            rust-bin.nightly.latest.default
+            rust-bin.nightly.latest.rust-analyzer
+            rust-bin.nightly.latest.rustfmt
           ];
 
           RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
