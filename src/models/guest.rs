@@ -139,18 +139,6 @@ impl GuestConfigBuilder {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GuestEntry {
-    /// A guest authorization that has been authorized but not yet connected to
-    /// the network
-    Inactive {
-        #[serde(rename = "_id")]
-        id: String,
-        authorized_by: String,
-        end: u64,
-        expired: bool,
-        mac: String,
-        site_id: String,
-        start: u64,
-    },
     /// An active guest authorization that hasn't expired
     Active {
         #[serde(rename = "_id")]
@@ -166,13 +154,14 @@ pub enum GuestEntry {
         rx_bytes: u64,
         tx_bytes: u64,
     },
-    /// An expired guest authorization
-    Expired {
+    /// A guest authorization that has been authorized but not yet connected to
+    /// the network or has expired
+    Inactive {
         #[serde(rename = "_id")]
         id: String,
         authorized_by: String,
         end: u64,
-        expired: bool, // Will be true
+        expired: bool,
         mac: String,
         site_id: String,
         start: u64,
@@ -187,10 +176,9 @@ impl GuestEntry {
     pub fn was_unauthorized(&self) -> bool {
         match self {
             GuestEntry::Active { .. } => false,
-            GuestEntry::Expired {
+            GuestEntry::Inactive {
                 unauthorized_by, ..
             } => unauthorized_by.is_some(),
-            GuestEntry::Inactive { .. } => false,
         }
     }
 }
