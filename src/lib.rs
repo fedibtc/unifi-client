@@ -15,7 +15,7 @@
 //! ## Example
 //!
 //! ```rust,no_run
-//! use unifi_client::{UnifiClient, ClientConfig};
+//! use unifi_client::{ClientConfig, UnifiClient, VoucherConfig};
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,17 +32,18 @@
 //!     // Login - this will prompt for password if not provided
 //!     client.login(None).await?;
 //!     
-//!     // Create vouchers
-//!     let vouchers = client.vouchers().create(
-//!         5,                           // count
-//!         1440,                        // duration (minutes)
-//!         Some("Event tickets".into()), // note
-//!         None,                        // up limit
-//!         None,                        // down limit
-//!         None,                        // quota
-//!     ).await?;
+//!     // Create a voucher configuration
+//!     let voucher_config = VoucherConfig::builder()
+//!         .count(5)
+//!         .minutes(1440)
+//!         .note("Guest access")
+//!         .build()?;
+//!     
+//!     // Create the vouchers
+//!     let create_response = client.vouchers().create(voucher_config).await?;
 //!     
 //!     // Print the voucher codes
+//!     let vouchers = client.vouchers().get_by_create_time(create_response.create_time).await?;
 //!     for voucher in vouchers {
 //!         println!("Code: {}, Duration: {} minutes", voucher.code, voucher.duration);
 //!     }
@@ -65,4 +66,4 @@ pub use error::{UnifiError, UnifiResult};
 pub use models::api_response::{ApiMeta, ApiResponse, EmptyResponse};
 pub use models::auth::LoginRequest;
 pub use models::site::{Site, SiteStats};
-pub use models::voucher::{CreateVoucherRequest, CreateVoucherResponse, Voucher, VoucherExpireUnit, VoucherStatus};
+pub use models::voucher::{CreateVoucherRequest, CreateVoucherResponse, Voucher, VoucherConfig, VoucherExpireUnit, VoucherStatus};

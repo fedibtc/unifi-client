@@ -3,7 +3,7 @@ use reqwest::Method;
 use super::ApiEndpoint;
 use crate::{
     CreateVoucherRequest, CreateVoucherResponse, UnifiClient, UnifiError, UnifiResult, Voucher,
-    VoucherExpireUnit,
+    VoucherConfig,
 };
 
 /// API for managing vouchers.
@@ -27,56 +27,28 @@ impl<'a> VoucherApi<'a> {
     ///
     /// # Arguments
     ///
-    /// * `count` - The number of vouchers to create.
-    /// * `minutes` - The duration the voucher is valid after activation in
-    ///   minutes.
-    /// * `note` - An optional note to associate with the vouchers.
-    /// * `up` - Optional upload speed limit in Kbps.
-    /// * `down` - Optional download speed limit in Kbps.
-    /// * `mb_quota` - Optional data transfer limit in MB.
+    /// * `config` - The configuration for creating vouchers.
     ///
     /// # Returns
     ///
-    /// A vector of created vouchers.
-    pub async fn create(
-        &self,
-        count: u32,
-        minutes: u32,
-        note: Option<String>,
-        up: Option<u32>,
-        down: Option<u32>,
-        transfer_limit: Option<u32>,
-    ) -> UnifiResult<CreateVoucherResponse> {
+    /// The response from creating the vouchers.
+    pub async fn create(&self, config: VoucherConfig) -> UnifiResult<CreateVoucherResponse> {
         let mut client = self.client.clone();
-
-        let create_data = CreateVoucherRequest {
-            cmd: "create-voucher".to_string(),
-            n: count,
-            expire: Some(minutes),
-            expire_number: Some(1),
-            expire_unit: Some(VoucherExpireUnit::Minutes),
-            quota: Some(1),
-            note,
-            up,
-            down,
-            bytes: transfer_limit,
-        };
-
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/cmd/hotspot", site);
 
-        // Create the voucher and get the response
         let response: Vec<CreateVoucherResponse> = client
-            .request(Method::POST, &endpoint, Some(create_data))
+            .request(
+                Method::POST,
+                &endpoint,
+                Some(CreateVoucherRequest::try_from(config)?),
+            )
             .await?;
 
-        // Extract the first (and likely only) create voucher response
-        match response.first() {
-            Some(create_response) => Ok(create_response.clone()),
-            None => Err(UnifiError::ApiError(
-                "No create voucher response received".to_string(),
-            )),
-        }
+        response
+            .first()
+            .cloned()
+            .ok_or_else(|| UnifiError::ApiError("No create voucher response received".to_string()))
     }
 
     /// Delete a voucher by ID.
@@ -164,8 +136,7 @@ impl<'a> VoucherApi<'a> {
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/stat/voucher", site);
 
-        let vouchers: Vec<Voucher> = client.request(Method::GET, &endpoint,
-        None::<()>).await?;
+        let vouchers: Vec<Voucher> = client.request(Method::GET, &endpoint, None::<()>).await?;
 
         Ok(vouchers)
     }

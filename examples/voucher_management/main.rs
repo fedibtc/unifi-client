@@ -1,9 +1,9 @@
+use env_logger;
 use std::env;
 use std::error::Error;
 use std::io::{self, Write};
 
-use env_logger;
-use unifi_client::{ClientConfig, UnifiClient};
+use unifi_client::{ClientConfig, UnifiClient, VoucherConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -117,9 +117,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     "\nCreating {} vouchers with {} minute duration...",
                     count, duration
                 );
-                let voucher_create_response = voucher_api
-                    .create(count, duration, note, None, None, None)
-                    .await?;
+                let voucher_config = VoucherConfig::builder()
+                    .count(count)
+                    .minutes(duration)
+                    .note(note.unwrap_or_default())
+                    .build()?;
+                let voucher_create_response = voucher_api.create(voucher_config).await?;
                 println!(
                     "\n✅ Successfully created {} voucher{}\n",
                     count,

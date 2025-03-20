@@ -1,5 +1,8 @@
-use serde::{Deserialize, Serialize};
 use std::fmt;
+
+use serde::{Deserialize, Serialize};
+
+use crate::UnifiError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// A voucher is a code that allows a guest to connect to the network for a
@@ -60,6 +63,103 @@ pub struct Voucher {
 impl fmt::Display for Voucher {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Code: {} ({})", self.code, self.status)
+    }
+}
+
+/// Configuration for creating vouchers.
+#[derive(Default)]
+pub struct VoucherConfig {
+    pub count: u32,
+    pub minutes: Option<u32>,
+    pub note: Option<String>,
+    pub up: Option<u32>,
+    pub down: Option<u32>,
+    pub transfer_limit: Option<u32>,
+}
+
+impl VoucherConfig {
+    /// Create a new voucher configuration builder.
+    pub fn builder() -> VoucherConfigBuilder {
+        VoucherConfigBuilder::default()
+    }
+}
+
+/// Builder for voucher configuration.
+#[derive(Default)]
+pub struct VoucherConfigBuilder {
+    config: VoucherConfig,
+}
+
+impl VoucherConfigBuilder {
+    /// Set the number of vouchers to create.
+    pub fn count(mut self, count: u32) -> Self {
+        self.config.count = count;
+        self
+    }
+
+    /// Set the duration the voucher is valid after activation in minutes.
+    pub fn minutes(mut self, minutes: u32) -> Self {
+        self.config.minutes = Some(minutes);
+        self
+    }
+
+    /// Set an optional note for the vouchers.
+    pub fn note(mut self, note: impl Into<String>) -> Self {
+        self.config.note = Some(note.into());
+        self
+    }
+
+    /// Set an optional upload speed limit in Kbps.
+    pub fn upload_limit(mut self, up: u32) -> Self {
+        self.config.up = Some(up);
+        self
+    }
+
+    /// Set an optional download speed limit in Kbps.
+    pub fn download_limit(mut self, down: u32) -> Self {
+        self.config.down = Some(down);
+        self
+    }
+
+    /// Set an optional data transfer limit in MB.
+    pub fn transfer_limit(mut self, limit: u32) -> Self {
+        self.config.transfer_limit = Some(limit);
+        self
+    }
+
+    /// Build the voucher configuration.
+    pub fn build(self) -> Result<VoucherConfig, UnifiError> {
+        if self.config.count == 0 {
+            return Err(UnifiError::ApiError(
+                "Voucher count must be greater than 0".to_string(),
+            ));
+        }
+        Ok(self.config)
+    }
+}
+
+impl TryFrom<VoucherConfig> for CreateVoucherRequest {
+    type Error = UnifiError;
+
+    fn try_from(config: VoucherConfig) -> Result<Self, Self::Error> {
+        if config.count == 0 {
+            return Err(UnifiError::ApiError(
+                "Voucher count must be greater than 0".to_string(),
+            ));
+        }
+
+        Ok(Self {
+            cmd: "create-voucher".to_string(),
+            n: config.count,
+            expire: config.minutes,
+            expire_number: None,
+            expire_unit: None,
+            quota: None,
+            note: config.note,
+            up: config.up,
+            down: config.down,
+            bytes: config.transfer_limit,
+        })
     }
 }
 

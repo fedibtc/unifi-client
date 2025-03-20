@@ -1,10 +1,10 @@
 use serde_json::json;
-use unifi_client::{UnifiError, VoucherStatus};
 use wiremock::{MockServer, Mock, ResponseTemplate};
 use wiremock::matchers::{method, path, body_json, header};
 
 mod common;
 use common::setup_test_client;
+use unifi_client::{UnifiError, VoucherConfig, VoucherStatus};
 
 #[tokio::test]
 async fn test_list_vouchers() {
@@ -42,10 +42,10 @@ async fn test_list_vouchers() {
                         "quota": 1,
                         "duration": 1440,
                         "used": 0,
-                        "status": "valid",
+                        "status": "VALID_ONE",
                         "qos_rate_max_down": 10000,
                         "qos_rate_max_up": 5000,
-                        "bytes_quota": 1073741824
+                        "qos_usage_quota": 1073741824
                     },
                     {
                         "_id": "voucher2",
@@ -54,7 +54,7 @@ async fn test_list_vouchers() {
                         "quota": 1,
                         "duration": 1440,
                         "used": 1,
-                        "status": "used",
+                        "status": "USED",
                         "note": "Test voucher"
                     }
                 ]
@@ -67,7 +67,7 @@ async fn test_list_vouchers() {
     
     // Test listing vouchers
     let vouchers = client.vouchers().list().await.unwrap();
-    
+
     // Verify response
     assert_eq!(vouchers.len(), 2);
     
@@ -76,9 +76,9 @@ async fn test_list_vouchers() {
     assert_eq!(voucher1.id, "voucher1");
     assert_eq!(voucher1.code, "ABC123");
     assert_eq!(voucher1.status, VoucherStatus::Valid);
-    assert_eq!(voucher1.rate_max_down, Some(10000));
-    assert_eq!(voucher1.rate_max_up, Some(5000));
-    assert_eq!(voucher1.bytes_quota, Some(1073741824));
+    assert_eq!(voucher1.qos_rate_max_down, Some(10000));
+    assert_eq!(voucher1.qos_rate_max_up, Some(5000));
+    assert_eq!(voucher1.qos_usage_quota, Some(1073741824));
     assert_eq!(voucher1.note, None);
     
     // Check second voucher
@@ -110,75 +110,40 @@ async fn test_create_voucher() {
         .mount(&mock_server)
         .await;
     
-    // Set up voucher create mock
     Mock::given(method("POST"))
         .and(path("/api/s/default/cmd/hotspot"))
         .and(header("cookie", "unifises=test-cookie"))
         .and(body_json(json!({
             "cmd": "create-voucher",
             "n": 5,
-            "minutes": 1440,
-            "note": "Test vouchers"
+            "note": "Test vouchers",
+            "expire": 1440,
         })))
         .respond_with(ResponseTemplate::new(200)
             .set_body_json(json!({
                 "meta": { "rc": "ok" },
-                "data": []
+                "data": [{
+                    "create_time": 1622548800
+                }]
             })))
         .mount(&mock_server)
         .await;
-    
-    // Set up voucher list mock (for retrieving the created vouchers)
-    Mock::given(method("GET"))
-        .and(path("/api/s/default/stat/voucher"))
-        .and(header("cookie", "unifises=test-cookie"))
-        .respond_with(ResponseTemplate::new(200)
-            .set_body_json(json!({
-                "meta": { "rc": "ok" },
-                "data": [
-                    {
-                        "_id": "newvoucher1",
-                        "create_time": 1622548800,
-                        "code": "NEW123",
-                        "quota": 1,
-                        "duration": 1440,
-                        "used": 0,
-                        "note": "Test vouchers",
-                        "status": "valid"
-                    },
-                    {
-                        "_id": "newvoucher2",
-                        "create_time": 1622548800,
-                        "code": "NEW456",
-                        "quota": 1,
-                        "duration": 1440,
-                        "used": 0,
-                        "note": "Test vouchers",
-                        "status": "valid"
-                    }
-                ]
-            })))
-        .mount(&mock_server)
-        .await;
-    
+
     // Create test client
     let client = setup_test_client(&mock_server.uri()).await;
     
+    let voucher_config = VoucherConfig::builder()
+        .count(5)
+        .minutes(1440)
+        .note("Test vouchers")
+        .build()
+        .unwrap();
+    
     // Test creating vouchers
-    let vouchers = client.vouchers().create(
-        5,
-        1440,
-        Some("Test vouchers".to_string()),
-        None,
-        None,
-        None
-    ).await.unwrap();
+    let voucher_response = client.vouchers().create(voucher_config).await.unwrap();
     
     // Verify response
-    assert_eq!(vouchers.len(), 2);
-    assert_eq!(vouchers[0].code, "NEW123");
-    assert_eq!(vouchers[0].note, Some("Test vouchers".to_string()));
-    assert_eq!(vouchers[1].code, "NEW456");
+    assert_eq!(voucher_response.create_time, 1622548800);
 }
 
 #[tokio::test]
