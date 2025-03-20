@@ -1,12 +1,12 @@
-use reqwest::{
-    Client as ReqwestClient, Method, StatusCode,
-    header::{CONTENT_TYPE, COOKIE, HeaderMap, HeaderValue},
-};
-use rpassword::prompt_password;
-use serde::{Serialize, de::DeserializeOwned};
-use serde_json::Value;
 use std::fmt;
 use std::time::{Duration, Instant};
+
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, COOKIE};
+use reqwest::{Client as ReqwestClient, Method, StatusCode};
+use rpassword::prompt_password;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use serde_json::Value;
 use url::Url;
 
 use crate::{
@@ -262,16 +262,16 @@ impl UnifiClient {
     }
 
     /// Make a raw request to the UniFi API.
-    /// 
+    ///
     /// # Warning
     /// This is an advanced API that bypasses the type-safe wrappers.
     /// Use the typed API methods (like `vouchers()`, `sites()`) when possible.
-    /// 
+    ///
     /// # Arguments
     /// * `method` - The HTTP method to use
     /// * `endpoint` - The API endpoint path
     /// * `body` - Optional request body
-    /// 
+    ///
     /// # Returns
     /// The raw JSON response
     pub async fn raw_request<T>(
@@ -320,7 +320,10 @@ impl UnifiClient {
 
         if api_response.meta.rc != "ok" {
             return Err(UnifiError::ApiError(
-                api_response.meta.msg.unwrap_or_else(|| "Unknown API error".into()),
+                api_response
+                    .meta
+                    .msg
+                    .unwrap_or_else(|| "Unknown API error".into()),
             ));
         }
 

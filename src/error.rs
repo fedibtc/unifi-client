@@ -1,6 +1,4 @@
 use thiserror::Error;
-
-// Re-export these types for user convenience
 pub use url::ParseError as UrlParseError;
 
 /// Error types for the UniFi API client.

@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
 
 /// A UniFi site.
 #[derive(Debug, Clone, Serialize, Deserialize)]
