@@ -97,4 +97,22 @@ impl<'a> GuestApi<'a> {
 
         Ok(())
     }
+
+    /// Unauthorize all guests.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if all guests were unauthorized successfully
+    /// * `Err(UnifiError)` if the unauthorization failed
+    pub async fn unauthorize_all(&self) -> Result<(), UnifiError> {
+        // Get all guests
+        let all_guests = self.list(None).await?;
+
+        // Unauthorize each guest
+        for guest in all_guests {
+            self.unauthorize(guest.mac()).await?;
+        }
+
+        Ok(())
+    }
 }
