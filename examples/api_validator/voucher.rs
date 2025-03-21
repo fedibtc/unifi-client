@@ -190,14 +190,14 @@ impl VoucherValidator {
     async fn validate_data_transmit_limit(&self) -> UnifiResult<()> {
         let mut client = self.client.clone();
         
-        let transfer_limit = 1000; // Test with 1GB quota
+        let data_quota = 1000; // Test with 1GB quota
         
         // Create a voucher with data quota
         let create_data = serde_json::json!({
             "cmd": "create-voucher",
             "n": 1,
             "note": "data transfer limit test",
-            "bytes": transfer_limit,
+            "bytes": data_quota,
         });
 
         let site = self.client.site();
@@ -223,11 +223,11 @@ impl VoucherValidator {
         // Validate quota matches
         if let Some(voucher) = vouchers.as_array().and_then(|v| v.first()) {
             if let Some(quota) = voucher["qos_usage_quota"].as_u64() {
-                if quota == transfer_limit as u64 {
+                if quota == data_quota as u64 {
                     println!("✅ Data quota test passed");
                 } else {
                     println!("❌ Data quota test failed: expected {} MB, got {} MB", 
-                        transfer_limit, quota);
+                        data_quota, quota);
                 }
             } else {
                 println!("❌ Data quota test failed: quota field not found or invalid type");

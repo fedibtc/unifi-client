@@ -74,7 +74,7 @@ pub struct VoucherConfig {
     pub note: Option<String>,
     pub up: Option<u32>,
     pub down: Option<u32>,
-    pub transfer_limit: Option<u32>,
+    pub data_quota: Option<u32>,
 }
 
 impl VoucherConfig {
@@ -121,9 +121,9 @@ impl VoucherConfigBuilder {
         self
     }
 
-    /// Set an optional data transfer limit in MB.
-    pub fn transfer_limit(mut self, limit: u32) -> Self {
-        self.config.transfer_limit = Some(limit);
+    /// Set an optional data transfer quota in MB.
+    pub fn data_quota(mut self, quota: u32) -> Self {
+        self.config.data_quota = Some(quota);
         self
     }
 
@@ -158,7 +158,7 @@ impl TryFrom<VoucherConfig> for CreateVoucherRequest {
             note: config.note,
             up: config.up,
             down: config.down,
-            bytes: config.transfer_limit,
+            bytes: config.data_quota,
         })
     }
 }

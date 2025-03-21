@@ -18,7 +18,7 @@ pub struct AuthorizeGuestRequest {
     /// Download speed limit in Kbps.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub down: Option<u32>,
-    /// Data transfer limit in MB.
+    /// Data transfer quota in MB.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bytes: Option<u32>,
     /// AP MAC address to which client is connected.
@@ -36,7 +36,7 @@ impl TryFrom<GuestConfig> for AuthorizeGuestRequest {
             minutes: config.minutes,
             up: config.up,
             down: config.down,
-            bytes: config.transfer_limit,
+            bytes: config.data_quota,
             ap_mac: config.ap_mac,
         })
     }
@@ -53,8 +53,8 @@ pub struct GuestConfig {
     pub up: Option<u32>,
     /// Download speed limit in Kbps
     pub down: Option<u32>,
-    /// Data transfer limit in MB
-    pub transfer_limit: Option<u32>,
+    /// Data transfer quota in MB
+    pub data_quota: Option<u32>,
     /// AP MAC address to which client is connected
     pub ap_mac: Option<String>,
 }
@@ -97,9 +97,9 @@ impl GuestConfigBuilder {
         self
     }
 
-    /// Set the data transfer limit in MB.
-    pub fn transfer_limit(mut self, limit: u32) -> Self {
-        self.config.transfer_limit = Some(limit);
+    /// Set the data transfer quota in MB.
+    pub fn data_quota(mut self, quota: u32) -> Self {
+        self.config.data_quota = Some(quota);
         self
     }
 
