@@ -20,7 +20,7 @@ pub struct AuthorizeGuestRequest {
     pub down: Option<u32>,
     /// Data transfer quota in MB.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub bytes: Option<u32>,
+    pub bytes: Option<u64>,
     /// AP MAC address to which client is connected.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ap_mac: Option<String>,
@@ -54,7 +54,7 @@ pub struct GuestConfig {
     /// Download speed limit in Kbps
     pub down: Option<u32>,
     /// Data transfer quota in MB
-    pub data_quota: Option<u32>,
+    pub data_quota: Option<u64>,
     /// AP MAC address to which client is connected
     pub ap_mac: Option<String>,
 }
@@ -98,7 +98,7 @@ impl GuestConfigBuilder {
     }
 
     /// Set the data transfer quota in MB.
-    pub fn data_quota(mut self, quota: u32) -> Self {
+    pub fn data_quota(mut self, quota: u64) -> Self {
         self.config.data_quota = Some(quota);
         self
     }
