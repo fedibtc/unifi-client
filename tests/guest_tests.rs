@@ -67,7 +67,7 @@ async fn test_authorize_guest() {
         GuestEntry::Inactive { expired, mac, start, end,.. } => {
             assert_eq!(mac, "00:11:22:33:44:55");
             assert!(!expired);
-            assert!(end - start == duration as u64 * 60);
+            assert!(end - start == duration as i64 * 60);
         },
         _ => panic!("Expected Inactive guest entry"),
     }

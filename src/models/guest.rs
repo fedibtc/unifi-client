@@ -145,11 +145,11 @@ pub enum GuestEntry {
         #[serde(rename = "_id")]
         id: String,
         authorized_by: String,
-        end: u64,
+        end: i64,
         expired: bool, // Will be false
         mac: String,
         site_id: String,
-        start: u64,
+        start: i64,
         // Active guests always have these fields
         bytes: u64,
         rx_bytes: u64,
@@ -161,11 +161,11 @@ pub enum GuestEntry {
         #[serde(rename = "_id")]
         id: String,
         authorized_by: String,
-        end: u64,
+        end: i64,
         expired: bool,
         mac: String,
         site_id: String,
-        start: u64,
+        start: i64,
         // Optional field indicating if guest was explicitly unauthorized
         unauthorized_by: Option<String>,
     },
@@ -174,10 +174,10 @@ pub enum GuestEntry {
         #[serde(rename = "_id")]
         id: String,
         authorized_by: String,
-        end: u64,
+        end: i64,
         mac: String,
         site_id: String,
-        start: u64,
+        start: i64,
     }
 }
 
@@ -192,7 +192,7 @@ impl GuestEntry {
     }
 
     /// Get the expiration time of the guest authorization
-    pub fn expires_at(&self) -> u64 {
+    pub fn expires_at(&self) -> i64 {
         match self {
             GuestEntry::Active { end, .. } => *end,
             GuestEntry::Inactive { end, .. } => *end,
