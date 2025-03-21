@@ -92,7 +92,7 @@ let new_vouchers = voucher_api.create(
     Some("Conference".to_string()),  // note
     Some(10000),                  // up limit (Kbps)
     Some(20000),                  // down limit (Kbps)
-    Some(1024),                   // quota (MB)
+    Some(1024),                   // data quota (MB)
 ).await?;
 
 // List all vouchers
