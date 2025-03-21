@@ -134,7 +134,7 @@ async fn test_create_voucher() {
     
     let voucher_config = VoucherConfig::builder()
         .count(5)
-        .minutes(1440)
+        .duration(1440)
         .note("Test vouchers")
         .build()
         .unwrap();

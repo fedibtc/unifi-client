@@ -137,7 +137,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!("\nAuthorizing guest...");
                 let guest_config = GuestConfig::builder()
                     .mac(mac.trim())
-                    .minutes(duration)
+                    .duration(duration)
                     .build()?;
 
                 let guest = guest_api.authorize(guest_config).await?;

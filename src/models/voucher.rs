@@ -70,7 +70,7 @@ impl fmt::Display for Voucher {
 #[derive(Default)]
 pub struct VoucherConfig {
     pub count: u32,
-    pub minutes: Option<u32>,
+    pub duration: Option<u32>,
     pub note: Option<String>,
     pub up: Option<u32>,
     pub down: Option<u32>,
@@ -98,8 +98,8 @@ impl VoucherConfigBuilder {
     }
 
     /// Set the duration the voucher is valid after activation in minutes.
-    pub fn minutes(mut self, minutes: u32) -> Self {
-        self.config.minutes = Some(minutes);
+    pub fn duration(mut self, duration: u32) -> Self {
+        self.config.duration = Some(duration);
         self
     }
 
@@ -151,7 +151,7 @@ impl TryFrom<VoucherConfig> for CreateVoucherRequest {
         Ok(Self {
             cmd: "create-voucher".to_string(),
             n: config.count,
-            expire: config.minutes,
+            expire: config.duration,
             expire_number: None,
             expire_unit: None,
             quota: None,

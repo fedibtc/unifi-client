@@ -119,7 +119,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 );
                 let voucher_config = VoucherConfig::builder()
                     .count(count)
-                    .minutes(duration)
+                    .duration(duration)
                     .note(note.unwrap_or_default())
                     .build()?;
                 let voucher_create_response = voucher_api.create(voucher_config).await?;

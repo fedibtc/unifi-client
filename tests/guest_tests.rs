@@ -57,7 +57,7 @@ async fn test_authorize_guest() {
     
     let config = GuestConfig::builder()
         .mac("00:11:22:33:44:55")
-        .minutes(duration)
+        .duration(duration)
         .build()
         .unwrap();
     

@@ -33,7 +33,7 @@ impl TryFrom<GuestConfig> for AuthorizeGuestRequest {
         Ok(Self {
             cmd: "authorize-guest".to_string(),
             mac: config.mac,
-            minutes: config.minutes,
+            minutes: config.duration,
             up: config.up,
             down: config.down,
             bytes: config.data_quota,
@@ -48,7 +48,7 @@ pub struct GuestConfig {
     /// Client MAC address
     pub mac: String,
     /// Minutes until authorization expires
-    pub minutes: Option<u32>,
+    pub duration: Option<u32>,
     /// Upload speed limit in Kbps
     pub up: Option<u32>,
     /// Download speed limit in Kbps
@@ -80,8 +80,8 @@ impl GuestConfigBuilder {
     }
 
     /// Set the duration in minutes until authorization expires.
-    pub fn minutes(mut self, minutes: u32) -> Self {
-        self.config.minutes = Some(minutes);
+    pub fn duration(mut self, duration: u32) -> Self {
+        self.config.duration = Some(duration);
         self
     }
 
@@ -188,6 +188,15 @@ impl GuestEntry {
             GuestEntry::Active { authorized_by, .. } => authorized_by,
             GuestEntry::Inactive { authorized_by, .. } => authorized_by,
             GuestEntry::New { authorized_by, .. } => authorized_by,
+        }
+    }
+
+    /// Get the expiration time of the guest authorization
+    pub fn expires_at(&self) -> u64 {
+        match self {
+            GuestEntry::Active { end, .. } => *end,
+            GuestEntry::Inactive { end, .. } => *end,
+            GuestEntry::New { end, .. } => *end,
         }
     }
 
