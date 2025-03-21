@@ -1,7 +1,5 @@
-use std::collections::HashMap;
 use std::fmt;
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -40,6 +38,7 @@ struct AppConfig {
     unifi_password: String,
     unifi_site: String,
     verify_ssl: bool,
+    port: u16,
 }
 
 impl AppConfig {
@@ -66,6 +65,7 @@ impl fmt::Debug for AppConfig {
             .field("unifi_password", &"******") // Mask password
             .field("unifi_site", &self.unifi_site)
             .field("verify_ssl", &self.verify_ssl)
+            .field("port", &self.port)
             .finish()
     }
 }
@@ -73,19 +73,8 @@ impl fmt::Debug for AppConfig {
 // Shared application state
 #[derive(Clone)]
 struct AppState {
-    sessions: SessionStore,
     unifi_client: std::sync::Arc<Mutex<UnifiClient>>,
 }
-
-// Active session tracking
-#[derive(Debug, Clone)]
-struct Session {
-    data_quota: Option<u64>,
-    expires_at: i64,
-    guest_id: String,
-}
-
-type SessionStore = Arc<Mutex<HashMap<String, Session>>>;
 
 async fn authorize_guest(
     State(state): State<AppState>,
@@ -143,19 +132,6 @@ async fn authorize_guest(
                 quota_info
             );
 
-            // Store session
-            {
-                let mut sessions = state.sessions.lock().await;
-                sessions.insert(
-                    mac.clone(),
-                    Session {
-                        data_quota: payload.data_quota_mb,
-                        expires_at: end,
-                        guest_id: id.clone(),
-                    },
-                );
-            }
-
             Json(GuestAuthResponse {
                 data_quota: payload.data_quota_mb,
                 expires_at: end,
@@ -186,7 +162,7 @@ async fn main() {
 
     // Load application configuration from environment variables.
     let config = AppConfig::new().expect("Failed to load configuration");
-    tracing::info!("Starting FediNet backend with configuration: {:?}", config);
+    tracing::info!("Starting UniFi Cafe backend with configuration: {:?}", config);
 
     // Build the UniFi client configuration.
     let unifi_client_config = ClientConfig::builder()
@@ -212,7 +188,6 @@ async fn main() {
 
     // Create shared state with the authenticated UniFi client and session store.
     let state = AppState {
-        sessions: SessionStore::new(Mutex::new(HashMap::new())),
         unifi_client: std::sync::Arc::new(Mutex::new(unifi_client)),
     };
 
@@ -229,7 +204,7 @@ async fn main() {
         .with_state(state);
 
     // Bind the server to localhost:3000.
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     tracing::info!("Listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
