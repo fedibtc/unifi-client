@@ -58,13 +58,11 @@
 //! }
 //! ```
 
-// Module declarations
 mod api;
 mod client;
 mod error;
 mod models;
 
-// Public exports
 pub use api::guest::GuestApi;
 pub use api::site::SiteApi;
 pub use api::voucher::VoucherApi;

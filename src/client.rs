@@ -15,6 +15,9 @@ use crate::{
 };
 
 /// Configuration for the UniFi client.
+///
+/// This structure holds all settings needed to connect to a UniFi Controller,
+/// including connection parameters, authentication details, and request options.
 #[derive(Clone, Debug)]
 pub struct ClientConfig {
     /// The complete URL to the UniFi controller (e.g., "https://unifi.example.com:8443").
@@ -40,13 +43,33 @@ pub struct ClientConfig {
 }
 
 impl ClientConfig {
-    /// Create a new client configuration builder.
+    /// Creates a new client configuration builder.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use unifi_client::ClientConfig;
+    /// use std::time::Duration;
+    ///
+    /// let config = ClientConfig::builder()
+    ///     .controller_url("https://unifi.example.com:8443")
+    ///     .username("admin")
+    ///     .password("secret")
+    ///     .site("default")
+    ///     .verify_ssl(true)
+    ///     .timeout(Duration::from_secs(30))
+    ///     .build()
+    ///     .expect("Failed to build client configuration");
+    /// ```
     pub fn builder() -> ClientConfigBuilder {
         ClientConfigBuilder::default()
     }
 }
 
 /// Builder for client configuration.
+///
+/// This builder provides a fluent API for creating UniFi client configurations
+/// with validation at build time.
 #[derive(Default)]
 pub struct ClientConfigBuilder {
     controller_url: Option<String>,
@@ -59,49 +82,83 @@ pub struct ClientConfigBuilder {
 }
 
 impl ClientConfigBuilder {
-    /// Set the controller URL.
+    /// Sets the controller URL.
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - The complete URL to the UniFi controller (e.g., "https://unifi.example.com:8443")
     pub fn controller_url(mut self, url: &str) -> Self {
         self.controller_url = Some(url.to_string());
         self
     }
 
-    /// Set the username for authentication.
+    /// Sets the username for authentication.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The username to authenticate with
     pub fn username(mut self, username: &str) -> Self {
         self.username = Some(username.to_string());
         self
     }
 
-    /// Set the password for authentication.
+    /// Sets the password for authentication.
+    ///
+    /// # Arguments
+    ///
+    /// * `password` - The password to authenticate with
     pub fn password(mut self, password: &str) -> Self {
         self.password = Some(password.to_string());
         self
     }
 
-    /// Set the site to use.
+    /// Sets the site to use.
+    ///
+    /// # Arguments
+    ///
+    /// * `site` - The UniFi site name to use (defaults to "default" if not set)
     pub fn site(mut self, site: &str) -> Self {
         self.site = Some(site.to_string());
         self
     }
 
-    /// Set whether to verify SSL certificates.
+    /// Sets whether to verify SSL certificates.
+    ///
+    /// # Arguments
+    ///
+    /// * `verify` - Whether to verify SSL certificates (true) or accept invalid certs (false)
     pub fn verify_ssl(mut self, verify: bool) -> Self {
         self.verify_ssl = verify;
         self
     }
 
-    /// Set the HTTP request timeout.
+    /// Sets the HTTP request timeout.
+    ///
+    /// # Arguments
+    ///
+    /// * `timeout` - The maximum duration to wait for HTTP requests
     pub fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = Some(timeout);
         self
     }
 
-    /// Set a custom user agent string.
+    /// Sets a custom user agent string.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_agent` - The user agent string to use for HTTP requests
     pub fn user_agent(mut self, user_agent: &str) -> Self {
         self.user_agent = Some(user_agent.to_string());
         self
     }
 
-    /// Build the client configuration.
+    /// Builds the client configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if required fields are missing or invalid:
+    /// - Controller URL is required and must be a valid URL
+    /// - Username is required
     pub fn build(self) -> UnifiResult<ClientConfig> {
         let controller_url = self
             .controller_url
@@ -140,6 +197,9 @@ struct AuthState {
 }
 
 /// The main UniFi client for interacting with the UniFi Controller API.
+///
+/// This client manages authentication, request handling, and provides access
+/// to the various API endpoints through dedicated API objects.
 pub struct UnifiClient {
     pub(crate) config: ClientConfig,
     http_client: ReqwestClient,
@@ -156,7 +216,26 @@ impl fmt::Debug for UnifiClient {
 }
 
 impl UnifiClient {
-    /// Create a new UniFi client with the given configuration.
+    /// Creates a new UniFi client with the given configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Configuration for connecting to the UniFi Controller
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use unifi_client::{ClientConfig, UnifiClient};
+    ///
+    /// let config = ClientConfig::builder()
+    ///     .controller_url("https://unifi.example.com:8443")
+    ///     .username("admin")
+    ///     .password("secret")
+    ///     .build()
+    ///     .expect("Failed to build client config");
+    ///
+    /// let client = UnifiClient::new(config);
+    /// ```
     pub fn new(config: ClientConfig) -> Self {
         let http_client = ReqwestClient::builder()
             .timeout(config.timeout)
@@ -173,7 +252,40 @@ impl UnifiClient {
         }
     }
 
-    /// Login to the UniFi controller.
+    /// Logs in to the UniFi controller.
+    ///
+    /// # Arguments
+    ///
+    /// * `password` - Optional password to use for authentication. If None,
+    ///   the password from the configuration will be used. If that is also None,
+    ///   the user will be prompted to enter a password.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if authentication fails, typically due to:
+    /// - Invalid credentials
+    /// - Connection issues
+    /// - Server errors
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> Result<(), unifi_client::UnifiError> {
+    /// # use unifi_client::{ClientConfig, UnifiClient};
+    /// # let config = ClientConfig::builder()
+    /// #    .controller_url("https://unifi.example.com")
+    /// #    .username("admin")
+    /// #    .build()?;
+    /// let mut client = UnifiClient::new(config);
+    ///
+    /// // Login with explicit password
+    /// client.login(Some("password123".to_string())).await?;
+    ///
+    /// // Or use password from config or prompt
+    /// client.login(None).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn login(&mut self, password: Option<String>) -> UnifiResult<()> {
         let password = match (password, &self.config.password) {
             (Some(pwd), _) => pwd,
@@ -262,19 +374,44 @@ impl UnifiClient {
         Ok(())
     }
 
-    /// Make a raw request to the UniFi API.
+    /// Makes a raw request to the UniFi API.
     ///
     /// # Warning
+    ///
     /// This is an advanced API that bypasses the type-safe wrappers.
     /// Use the typed API methods (like `vouchers()`, `sites()`) when possible.
     ///
     /// # Arguments
+    ///
     /// * `method` - The HTTP method to use
     /// * `endpoint` - The API endpoint path
     /// * `body` - Optional request body
     ///
-    /// # Returns
-    /// The raw JSON response
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Authentication is not valid or expired
+    /// - The request fails due to network issues
+    /// - The API returns an error response
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> Result<(), unifi_client::UnifiError> {
+    /// # use unifi_client::{ClientConfig, UnifiClient};
+    /// # let config = ClientConfig::builder()
+    /// #    .controller_url("https://unifi.example.com")
+    /// #    .username("admin")
+    /// #    .password("password")
+    /// #    .build()?;
+    /// # let mut client = UnifiClient::new(config);
+    /// # client.login(None).await?;
+    /// // Get system status with a raw request
+    /// let status = client.raw_request("GET", "/api/s/default/stat/sysinfo", None::<()>).await?;
+    /// println!("System info: {}", status);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn raw_request<T>(
         &mut self,
         method: &str,
@@ -408,22 +545,89 @@ impl UnifiClient {
         }
     }
 
-    /// Get the current site ID.
+    /// Gets the current site ID.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use unifi_client::{ClientConfig, UnifiClient};
+    /// # let config = ClientConfig::builder()
+    /// #    .controller_url("https://unifi.example.com")
+    /// #    .username("admin")
+    /// #    .site("my-site")
+    /// #    .build()
+    /// #    .unwrap();
+    /// let client = UnifiClient::new(config);
+    /// assert_eq!(client.site(), "my-site");
+    /// ```
     pub fn site(&self) -> &str {
         &self.config.site
     }
 
-    /// Get the guest API.
+    /// Gets the guest API interface.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> Result<(), unifi_client::UnifiError> {
+    /// # use unifi_client::{ClientConfig, UnifiClient, GuestConfig};
+    /// # let mut client = UnifiClient::new(ClientConfig::builder().controller_url("https://example.com").username("admin").build()?);
+    /// # client.login(None).await?;
+    /// let guests_api = client.guests();
+    ///
+    /// // Now use the guests API
+    /// let config = GuestConfig::builder()
+    ///     .mac("00:11:22:33:44:55")
+    ///     .duration(60)
+    ///     .build()?;
+    /// let guest = guests_api.authorize(config).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn guests(&self) -> GuestApi {
         GuestApi::new(self)
     }
 
-    /// Get the site API.
+    /// Gets the site API interface.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> Result<(), unifi_client::UnifiError> {
+    /// # use unifi_client::{ClientConfig, UnifiClient};
+    /// # let mut client = UnifiClient::new(ClientConfig::builder().controller_url("https://example.com").username("admin").build()?);
+    /// # client.login(None).await?;
+    /// let sites_api = client.sites();
+    ///
+    /// // Now use the sites API
+    /// let all_sites = sites_api.list().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn sites(&self) -> SiteApi {
         SiteApi::new(self)
     }
 
-    /// Get the voucher API.
+    /// Gets the voucher API interface.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> Result<(), unifi_client::UnifiError> {
+    /// # use unifi_client::{ClientConfig, UnifiClient, VoucherConfig};
+    /// # let mut client = UnifiClient::new(ClientConfig::builder().controller_url("https://example.com").username("admin").build()?);
+    /// # client.login(None).await?;
+    /// let vouchers_api = client.vouchers();
+    ///
+    /// // Now use the vouchers API
+    /// let config = VoucherConfig::builder()
+    ///     .count(5)
+    ///     .duration(120)
+    ///     .build()?;
+    /// let response = vouchers_api.create(config).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn vouchers(&self) -> VoucherApi {
         VoucherApi::new(self)
     }
