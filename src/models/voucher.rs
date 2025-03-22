@@ -138,31 +138,6 @@ impl VoucherConfigBuilder {
     }
 }
 
-impl TryFrom<VoucherConfig> for CreateVoucherRequest {
-    type Error = UnifiError;
-
-    fn try_from(config: VoucherConfig) -> Result<Self, Self::Error> {
-        if config.count == 0 {
-            return Err(UnifiError::ApiError(
-                "Voucher count must be greater than 0".to_string(),
-            ));
-        }
-
-        Ok(Self {
-            cmd: "create-voucher".to_string(),
-            n: config.count,
-            expire: config.duration,
-            expire_number: None,
-            expire_unit: None,
-            quota: None,
-            note: config.note,
-            up: config.up,
-            down: config.down,
-            bytes: config.data_quota,
-        })
-    }
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(into = "u32")]
 pub enum VoucherExpireUnit {
@@ -251,30 +226,34 @@ pub struct CreateVoucherRequest {
     pub bytes: Option<u32>,
 }
 
+impl TryFrom<VoucherConfig> for CreateVoucherRequest {
+    type Error = UnifiError;
+
+    fn try_from(config: VoucherConfig) -> Result<Self, Self::Error> {
+        if config.count == 0 {
+            return Err(UnifiError::ApiError(
+                "Voucher count must be greater than 0".to_string(),
+            ));
+        }
+
+        Ok(Self {
+            cmd: "create-voucher".to_string(),
+            n: config.count,
+            expire: config.duration,
+            expire_number: None,
+            expire_unit: None,
+            quota: None,
+            note: config.note,
+            up: config.up,
+            down: config.down,
+            bytes: config.data_quota,
+        })
+    }
+}
+
 /// Response from creating a voucher.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateVoucherResponse {
     /// When the voucher was created (Unix timestamp).
     pub create_time: u64,
 }
-
-// /// Request to delete a voucher.
-// #[derive(Debug, Clone, Serialize)]
-// pub struct DeleteVoucherRequest {
-//     /// Command to delete a voucher.
-//     pub cmd: String,
-
-//     /// The ID of the voucher to delete.
-//     #[serde(rename = "_id")]
-//     pub id: String,
-// }
-
-// impl DeleteVoucherRequest {
-//     /// Create a new voucher deletion request.
-//     pub fn new(id: impl Into<String>) -> Self {
-//         Self {
-//             cmd: "delete-voucher".to_string(),
-//             id: id.into(),
-//         }
-//     }
-// }
