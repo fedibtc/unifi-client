@@ -3,7 +3,10 @@ use reqwest::Method;
 use super::ApiEndpoint;
 use crate::{Site, SiteStats, UnifiClient, UnifiError, UnifiResult};
 
-/// API for managing sites.
+/// Provides methods for managing UniFi Controller sites.
+///
+/// This API allows creating, listing, updating, and deleting sites within the UniFi system,
+/// as well as retrieving site statistics.
 pub struct SiteApi<'a> {
     client: &'a UnifiClient,
 }
@@ -15,16 +18,34 @@ impl<'a> ApiEndpoint for SiteApi<'a> {
 }
 
 impl<'a> SiteApi<'a> {
-    /// Create a new site API.
+    /// Creates a new site API instance.
+    ///
+    /// This method is intended for internal use by the UniFi client.
+    ///
+    /// # Arguments
+    ///
+    /// * `client` - Reference to the UniFi client that will be used for API requests
     pub(crate) fn new(client: &'a UnifiClient) -> Self {
         Self { client }
     }
 
-    /// List all sites.
+    /// Retrieves all sites from the UniFi controller.
     ///
-    /// # Returns
+    /// # Examples
     ///
-    /// A vector of all sites.
+    /// ```no_run
+    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// let sites = client.sites().list().await?;
+    /// for site in sites {
+    ///     println!("Site: {}", site);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or if the UniFi controller returns an error response.
     pub async fn list(&self) -> UnifiResult<Vec<Site>> {
         let mut client = self.client.clone();
 
@@ -35,15 +56,25 @@ impl<'a> SiteApi<'a> {
         Ok(sites)
     }
 
-    /// Get a specific site by ID.
+    /// Retrieves a specific site by its ID.
     ///
     /// # Arguments
     ///
-    /// * `site_id` - The ID of the site to get.
+    /// * `site_id` - The unique identifier of the site to retrieve
     ///
-    /// # Returns
+    /// # Examples
     ///
-    /// The site if found.
+    /// ```no_run
+    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// let site = client.sites().get("5f8d7c66e4b0abcdef123456").await?;
+    /// println!("Retrieved site: {}", site);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not accessible.
     pub async fn get(&self, site_id: &str) -> UnifiResult<Site> {
         let sites = self.list().await?;
 
@@ -53,15 +84,29 @@ impl<'a> SiteApi<'a> {
             .ok_or_else(|| UnifiError::SiteNotFound(site_id.to_string()))
     }
 
-    /// Get a specific site by name.
+    /// Retrieves a specific site by its name or description.
+    ///
+    /// This method searches both the site name (used in API calls) and the human-readable
+    /// description for a match.
     ///
     /// # Arguments
     ///
-    /// * `name` - The name or description of the site to get.
+    /// * `name` - The name or description of the site to retrieve
     ///
-    /// # Returns
+    /// # Examples
     ///
-    /// The site if found.
+    /// ```no_run
+    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// // Find site either by name or description
+    /// let site = client.sites().get_by_name("Main Office").await?;
+    /// println!("Retrieved site: {}", site);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `UnifiError::SiteNotFound` if no site matches the provided name or description.
     pub async fn get_by_name(&self, name: &str) -> UnifiResult<Site> {
         let sites = self.list().await?;
 
@@ -71,16 +116,26 @@ impl<'a> SiteApi<'a> {
             .ok_or_else(|| UnifiError::SiteNotFound(name.to_string()))
     }
 
-    /// Create a new site.
+    /// Creates a new site on the UniFi controller.
     ///
     /// # Arguments
     ///
-    /// * `name` - The name of the site (used in API calls).
-    /// * `description` - The human-readable description of the site.
+    /// * `name` - The site name to use in API calls (should be URL-friendly)
+    /// * `description` - The human-readable description of the site
     ///
-    /// # Returns
+    /// # Examples
     ///
-    /// The newly created site.
+    /// ```no_run
+    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// let new_site = client.sites().create("branch-office", "Branch Office").await?;
+    /// println!("Created new site: {}", new_site);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the site creation fails or if a site with the same name already exists.
     pub async fn create(&self, name: &str, description: &str) -> UnifiResult<Site> {
         let mut client = self.client.clone();
 
@@ -100,16 +155,28 @@ impl<'a> SiteApi<'a> {
         self.get_by_name(name).await
     }
 
-    /// Update a site.
+    /// Updates an existing site's description.
     ///
     /// # Arguments
     ///
-    /// * `site_id` - The ID of the site to update.
-    /// * `description` - The new description for the site.
+    /// * `site_id` - The ID of the site to update
+    /// * `description` - The new description for the site
     ///
-    /// # Returns
+    /// # Examples
     ///
-    /// The updated site.
+    /// ```no_run
+    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// let updated_site = client.sites()
+    ///     .update("5f8d7c66e4b0abcdef123456", "Updated Description")
+    ///     .await?;
+    /// println!("Updated site: {}", updated_site);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not accessible.
     pub async fn update(&self, site_id: &str, description: &str) -> UnifiResult<Site> {
         let mut client = self.client.clone();
 
@@ -132,15 +199,27 @@ impl<'a> SiteApi<'a> {
         self.get(site_id).await
     }
 
-    /// Delete a site.
+    /// Deletes a site from the UniFi controller.
+    ///
+    /// Use with caution as this operation cannot be undone.
     ///
     /// # Arguments
     ///
-    /// * `site_id` - The ID of the site to delete.
+    /// * `site_id` - The ID of the site to delete
     ///
-    /// # Returns
+    /// # Examples
     ///
-    /// Success or error.
+    /// ```no_run
+    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// client.sites().delete("5f8d7c66e4b0abcdef123456").await?;
+    /// println!("Site deleted successfully");
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not accessible.
     pub async fn delete(&self, site_id: &str) -> UnifiResult<()> {
         let mut client = self.client.clone();
 
@@ -161,26 +240,45 @@ impl<'a> SiteApi<'a> {
         Ok(())
     }
 
-    /// Set the site as the default for this client.
+    /// Sets the specified site as the default for this client instance.
+    ///
+    /// This changes which site is used for subsequent API calls with the returned client.
     ///
     /// # Arguments
     ///
-    /// * `site` - The site to set as default.
+    /// * `site` - The site to set as default
     ///
-    /// # Returns
+    /// # Examples
     ///
-    /// The updated client.
+    /// ```no_run
+    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// let sites = client.sites().list().await?;
+    /// let first_site = &sites[0];
+    /// 
+    /// // Create a new client instance with a different default site
+    /// let new_client = client.sites().set_as_default(first_site);
+    /// 
+    /// // Subsequent calls with new_client will use the specified site
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_as_default(&self, site: &Site) -> UnifiClient {
         let mut new_client = self.client.clone();
         new_client.config.site = site.name.clone();
         new_client
     }
 
-    /// Get site statistics.
+    /// Retrieves statistics for the current site.
     ///
-    /// # Returns
+    /// # Examples
     ///
-    /// Statistics for the current site.
+    /// ```no_run
+    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// let stats = client.sites().stats().await?;
+    /// println!("Site has {} access points and {} clients", stats.num_ap, stats.num_user);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn stats(&self) -> UnifiResult<SiteStats> {
         let mut client = self.client.clone();
 
