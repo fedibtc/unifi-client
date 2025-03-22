@@ -8,7 +8,8 @@ use crate::{
 
 /// Provides methods for managing UniFi wireless guest vouchers.
 ///
-/// This API allows creating, listing, and deleting vouchers used for guest access.
+/// This API allows creating, listing, and deleting vouchers used for guest
+/// access.
 pub struct VoucherApi<'a> {
     client: &'a UnifiClient,
 }
@@ -26,7 +27,8 @@ impl<'a> VoucherApi<'a> {
     ///
     /// # Arguments
     ///
-    /// * `client` - Reference to the UniFi client that will be used for API requests
+    /// * `client` - Reference to the UniFi client that will be used for API
+    ///   requests
     pub(crate) fn new(client: &'a UnifiClient) -> Self {
         Self { client }
     }
@@ -34,16 +36,18 @@ impl<'a> VoucherApi<'a> {
     /// Creates new vouchers based on the provided configuration.
     ///
     /// This method generates one or more vouchers according to the settings
-    /// specified in the `config` parameter, such as duration, quantity, and bandwidth limits.
+    /// specified in the `config` parameter, such as duration, quantity, and
+    /// bandwidth limits.
     ///
     /// # Arguments
     ///
-    /// * `config` - Configuration options for the vouchers to be created, including 
-    ///   duration, count, bandwidth limits, and other options
+    /// * `config` - Configuration options for the vouchers to be created,
+    ///   including duration, count, bandwidth limits, and other options
     ///
     /// # Errors
     ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    /// Returns an error if the request fails or if the UniFi controller returns
+    /// an error response.
     ///
     /// # Examples
     ///
@@ -89,7 +93,8 @@ impl<'a> VoucherApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns an error if the request fails or if the voucher cannot be deleted.
+    /// Returns an error if the request fails or if the voucher cannot be
+    /// deleted.
     ///
     /// # Examples
     ///
@@ -124,7 +129,8 @@ impl<'a> VoucherApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns an error if listing vouchers fails or if any voucher deletion fails.
+    /// Returns an error if listing vouchers fails or if any voucher deletion
+    /// fails.
     ///
     /// # Examples
     ///
@@ -151,11 +157,13 @@ impl<'a> VoucherApi<'a> {
     ///
     /// # Arguments
     ///
-    /// * `create_time` - Unix timestamp (seconds since epoch) used to filter vouchers
+    /// * `create_time` - Unix timestamp (seconds since epoch) used to filter
+    ///   vouchers
     ///
     /// # Errors
     ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    /// Returns an error if the request fails or if the UniFi controller returns
+    /// an error response.
     ///
     /// # Examples
     ///
@@ -188,7 +196,8 @@ impl<'a> VoucherApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    /// Returns an error if the request fails or if the UniFi controller returns
+    /// an error response.
     ///
     /// # Examples
     ///
@@ -196,7 +205,10 @@ impl<'a> VoucherApi<'a> {
     /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
     /// let vouchers = client.vouchers().list().await?;
     /// for voucher in vouchers {
-    ///     println!("Voucher code: {}, duration: {}", voucher.code, voucher.duration);
+    ///     println!(
+    ///         "Voucher code: {}, duration: {}",
+    ///         voucher.code, voucher.duration
+    ///     );
     /// }
     /// # Ok(())
     /// # }

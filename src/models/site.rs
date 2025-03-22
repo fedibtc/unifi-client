@@ -35,33 +35,33 @@ pub struct Site {
 /// including device counts and health metrics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SiteStats {
-   /// Number of access points connected to the site.
-   pub num_ap: u32,
+    /// Number of access points connected to the site.
+    pub num_ap: u32,
 
-   /// Number of regular users/clients connected to the site.
-   pub num_user: u32,
+    /// Number of regular users/clients connected to the site.
+    pub num_user: u32,
 
-   /// Number of guest users connected to the site.
-   pub num_guest: u32,
+    /// Number of guest users connected to the site.
+    pub num_guest: u32,
 
-   /// Number of IoT devices connected to the site.
-   pub num_iot: Option<u32>,
+    /// Number of IoT devices connected to the site.
+    pub num_iot: Option<u32>,
 
-   /// Overall status of the site (e.g., "ok", "warning").
-   pub status: Option<String>,
+    /// Overall status of the site (e.g., "ok", "warning").
+    pub status: Option<String>,
 
-   /// Overall health score of the site (0-100).
-   pub score: Option<f64>,
+    /// Overall health score of the site (0-100).
+    pub score: Option<f64>,
 
-   /// Health information for individual subsystems.
-   pub subsystems: Option<Vec<SubsystemHealth>>,
+    /// Health information for individual subsystems.
+    pub subsystems: Option<Vec<SubsystemHealth>>,
 
-   /// When the statistics were collected (Unix timestamp).
-   pub timestamp: Option<u64>,
+    /// When the statistics were collected (Unix timestamp).
+    pub timestamp: Option<u64>,
 
-   /// Additional attributes not explicitly defined.
-   #[serde(flatten)]
-   pub attributes: Option<HashMap<String, serde_json::Value>>,
+    /// Additional attributes not explicitly defined.
+    #[serde(flatten)]
+    pub attributes: Option<HashMap<String, serde_json::Value>>,
 }
 
 /// Health information for a specific network subsystem.

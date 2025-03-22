@@ -5,8 +5,8 @@ use crate::{Site, SiteStats, UnifiClient, UnifiError, UnifiResult};
 
 /// Provides methods for managing UniFi Controller sites.
 ///
-/// This API allows creating, listing, updating, and deleting sites within the UniFi system,
-/// as well as retrieving site statistics.
+/// This API allows creating, listing, updating, and deleting sites within the
+/// UniFi system, as well as retrieving site statistics.
 pub struct SiteApi<'a> {
     client: &'a UnifiClient,
 }
@@ -24,7 +24,8 @@ impl<'a> SiteApi<'a> {
     ///
     /// # Arguments
     ///
-    /// * `client` - Reference to the UniFi client that will be used for API requests
+    /// * `client` - Reference to the UniFi client that will be used for API
+    ///   requests
     pub(crate) fn new(client: &'a UnifiClient) -> Self {
         Self { client }
     }
@@ -33,7 +34,8 @@ impl<'a> SiteApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    /// Returns an error if the request fails or if the UniFi controller returns
+    /// an error response.
     ///
     /// # Examples
     ///
@@ -64,7 +66,8 @@ impl<'a> SiteApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not accessible.
+    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not
+    /// accessible.
     ///
     /// # Examples
     ///
@@ -86,8 +89,8 @@ impl<'a> SiteApi<'a> {
 
     /// Retrieves a specific site by its name or description.
     ///
-    /// This method searches both the site name (used in API calls) and the human-readable
-    /// description for a match.
+    /// This method searches both the site name (used in API calls) and the
+    /// human-readable description for a match.
     ///
     /// # Arguments
     ///
@@ -95,7 +98,8 @@ impl<'a> SiteApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns `UnifiError::SiteNotFound` if no site matches the provided name or description.
+    /// Returns `UnifiError::SiteNotFound` if no site matches the provided name
+    /// or description.
     ///
     /// # Examples
     ///
@@ -125,13 +129,17 @@ impl<'a> SiteApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns an error if the site creation fails or if a site with the same name already exists.
+    /// Returns an error if the site creation fails or if a site with the same
+    /// name already exists.
     ///
     /// # Examples
     ///
     /// ```no_run
     /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
-    /// let new_site = client.sites().create("branch-office", "Branch Office").await?;
+    /// let new_site = client
+    ///     .sites()
+    ///     .create("branch-office", "Branch Office")
+    ///     .await?;
     /// println!("Created new site: {}", new_site);
     /// # Ok(())
     /// # }
@@ -164,13 +172,15 @@ impl<'a> SiteApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not accessible.
+    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not
+    /// accessible.
     ///
     /// # Examples
     ///
     /// ```no_run
     /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
-    /// let updated_site = client.sites()
+    /// let updated_site = client
+    ///     .sites()
     ///     .update("5f8d7c66e4b0abcdef123456", "Updated Description")
     ///     .await?;
     /// println!("Updated site: {}", updated_site);
@@ -209,7 +219,8 @@ impl<'a> SiteApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not accessible.
+    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not
+    /// accessible.
     ///
     /// # Examples
     ///
@@ -242,7 +253,8 @@ impl<'a> SiteApi<'a> {
 
     /// Sets the specified site as the default for this client instance.
     ///
-    /// This changes which site is used for subsequent API calls with the returned client.
+    /// This changes which site is used for subsequent API calls with the
+    /// returned client.
     ///
     /// # Arguments
     ///
@@ -254,10 +266,10 @@ impl<'a> SiteApi<'a> {
     /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
     /// let sites = client.sites().list().await?;
     /// let first_site = &sites[0];
-    /// 
+    ///
     /// // Create a new client instance with a different default site
     /// let new_client = client.sites().set_as_default(first_site);
-    /// 
+    ///
     /// // Subsequent calls with new_client will use the specified site
     /// # Ok(())
     /// # }
@@ -275,7 +287,10 @@ impl<'a> SiteApi<'a> {
     /// ```no_run
     /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
     /// let stats = client.sites().stats().await?;
-    /// println!("Site has {} access points and {} clients", stats.num_ap, stats.num_user);
+    /// println!(
+    ///     "Site has {} access points and {} clients",
+    ///     stats.num_ap, stats.num_user
+    /// );
     /// # Ok(())
     /// # }
     /// ```

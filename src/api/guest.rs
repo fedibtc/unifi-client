@@ -8,7 +8,8 @@ use crate::{
 
 /// Provides methods for managing UniFi wireless guest authorizations.
 ///
-/// This API allows authorizing, listing, and unauthorized wireless guest devices.
+/// This API allows authorizing, listing, and unauthorized wireless guest
+/// devices.
 pub struct GuestApi<'a> {
     client: &'a UnifiClient,
 }
@@ -26,7 +27,8 @@ impl<'a> GuestApi<'a> {
     ///
     /// # Arguments
     ///
-    /// * `client` - Reference to the UniFi client that will be used for API requests
+    /// * `client` - Reference to the UniFi client that will be used for API
+    ///   requests
     pub(crate) fn new(client: &'a UnifiClient) -> Self {
         Self { client }
     }
@@ -39,12 +41,13 @@ impl<'a> GuestApi<'a> {
     ///
     /// # Arguments
     ///
-    /// * `config` - Configuration options for the guest authorization, including
-    ///   MAC address, duration, and bandwidth limits
+    /// * `config` - Configuration options for the guest authorization,
+    ///   including MAC address, duration, and bandwidth limits
     ///
     /// # Errors
     ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    /// Returns an error if the request fails or if the UniFi controller returns
+    /// an error response.
     ///
     /// # Examples
     ///
@@ -91,7 +94,8 @@ impl<'a> GuestApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    /// Returns an error if the request fails or if the UniFi controller returns
+    /// an error response.
     ///
     /// # Examples
     ///
@@ -99,7 +103,7 @@ impl<'a> GuestApi<'a> {
     /// # async fn example(client: &unifi_client::UnifiClient) -> Result<(), unifi_client::UnifiError> {
     /// // Get all guest authorizations from the past 24 hours
     /// let guests = client.guests().list(Some(24)).await?;
-    /// 
+    ///
     /// for guest in guests {
     ///     println!("Guest {}: expires at {}", guest.mac(), guest.expires_at());
     /// }
@@ -126,7 +130,8 @@ impl<'a> GuestApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    /// Returns an error if the request fails or if the UniFi controller returns
+    /// an error response.
     ///
     /// # Examples
     ///
@@ -152,12 +157,14 @@ impl<'a> GuestApi<'a> {
 
     /// Revokes network access for all authorized guest devices.
     ///
-    /// This method retrieves all guest authorizations and then unauthorizes them one by one.
-    /// Use with caution as this operation cannot be undone.
+    /// This method retrieves all guest authorizations and then unauthorizes
+    /// them one by one. Use with caution as this operation cannot be
+    /// undone.
     ///
     /// # Errors
     ///
-    /// Returns an error if listing guests fails or if any guest unauthorization fails.
+    /// Returns an error if listing guests fails or if any guest unauthorization
+    /// fails.
     ///
     /// # Examples
     ///

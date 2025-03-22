@@ -17,7 +17,8 @@ use crate::{
 /// Configuration for the UniFi client.
 ///
 /// This structure holds all settings needed to connect to a UniFi Controller,
-/// including connection parameters, authentication details, and request options.
+/// including connection parameters, authentication details, and request
+/// options.
 #[derive(Clone, Debug)]
 pub struct ClientConfig {
     /// The complete URL to the UniFi controller (e.g., "https://unifi.example.com:8443").
@@ -48,8 +49,9 @@ impl ClientConfig {
     /// # Examples
     ///
     /// ```no_run
-    /// use unifi_client::ClientConfig;
     /// use std::time::Duration;
+    ///
+    /// use unifi_client::ClientConfig;
     ///
     /// let config = ClientConfig::builder()
     ///     .controller_url("https://unifi.example.com:8443")
@@ -126,7 +128,8 @@ impl ClientConfigBuilder {
     ///
     /// # Arguments
     ///
-    /// * `verify` - Whether to verify SSL certificates (true) or accept invalid certs (false)
+    /// * `verify` - Whether to verify SSL certificates (true) or accept invalid
+    ///   certs (false)
     pub fn verify_ssl(mut self, verify: bool) -> Self {
         self.verify_ssl = verify;
         self
@@ -256,8 +259,8 @@ impl UnifiClient {
     ///
     /// # Arguments
     ///
-    /// * `password` - Optional password to use for authentication. If None,
-    ///   the password from the configuration will be used. If that is also None,
+    /// * `password` - Optional password to use for authentication. If None, the
+    ///   password from the configuration will be used. If that is also None,
     ///   the user will be prompted to enter a password.
     ///
     /// # Errors
@@ -407,7 +410,9 @@ impl UnifiClient {
     /// # let mut client = UnifiClient::new(config);
     /// # client.login(None).await?;
     /// // Get system status with a raw request
-    /// let status = client.raw_request("GET", "/api/s/default/stat/sysinfo", None::<()>).await?;
+    /// let status = client
+    ///     .raw_request("GET", "/api/s/default/stat/sysinfo", None::<()>)
+    ///     .await?;
     /// println!("System info: {}", status);
     /// # Ok(())
     /// # }
