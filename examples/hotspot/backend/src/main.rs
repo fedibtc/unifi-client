@@ -25,27 +25,43 @@ struct ValidationLimits {
     max_data_quota_megabytes: u64,
 }
 
-fn validate_duration(duration_minutes: u32, context: &ValidationLimits) -> Result<(), ValidationError> {
+fn validate_duration(
+    duration_minutes: u32,
+    context: &ValidationLimits,
+) -> Result<(), ValidationError> {
     if duration_minutes < 1 {
         return Err(ValidationError::new("Duration must be positive"));
     }
     if duration_minutes > context.max_duration_minutes {
         let mut err = ValidationError::new("duration_too_large");
-        err.message = Some(format!("Duration must be between 1 and {} minutes", 
-            context.max_duration_minutes).into());
+        err.message = Some(
+            format!(
+                "Duration must be between 1 and {} minutes",
+                context.max_duration_minutes
+            )
+            .into(),
+        );
         return Err(err);
     }
     Ok(())
 }
 
-fn validate_data_quota(data_quota_megabytes: u64, context: &ValidationLimits) -> Result<(), ValidationError> {
+fn validate_data_quota(
+    data_quota_megabytes: u64,
+    context: &ValidationLimits,
+) -> Result<(), ValidationError> {
     if data_quota_megabytes < 1 {
         return Err(ValidationError::new("Data quota must be positive"));
     }
     if data_quota_megabytes > context.max_data_quota_megabytes {
         let mut err = ValidationError::new("quota_too_large");
-        err.message = Some(format!("Data quota must be between 1 and {} MB", 
-            context.max_data_quota_megabytes).into());
+        err.message = Some(
+            format!(
+                "Data quota must be between 1 and {} MB",
+                context.max_data_quota_megabytes
+            )
+            .into(),
+        );
         return Err(err);
     }
     Ok(())
