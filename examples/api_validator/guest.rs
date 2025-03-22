@@ -211,11 +211,86 @@ impl GuestValidator {
         Ok(())
     }
 
+    async fn validate_minutes_parameter_range(&self) -> UnifiResult<()> {
+        let mut client = self.client.clone();
+        let site = self.client.site();
+        let endpoint = format!("/api/s/{}/cmd/stamgr", site);
+        
+        // Test values to try
+        let test_values = [
+            (-1, "negative value"),
+            (0, "zero"),
+            (1, "minimum positive"),
+            (60, "1 hour"),
+            (1440, "1 day"),
+            (10080, "1 week"),
+            (43200, "30 days"),
+            (525600, "1 year"),
+            (1051200, "2 years"),
+        ];
+        
+        for (minutes, description) in &test_values {
+            // Generate a random MAC for each test
+            let test_mac = random_mac();
+            
+            // Create authorization request
+            let payload = serde_json::json!({
+                "cmd": "authorize-guest",
+                "mac": test_mac,
+                "minutes": minutes,
+            });
+            
+            // Make raw API call and check if it succeeds
+            let result = client.raw_request("POST", &endpoint, Some(payload)).await;
+            
+            match result {
+                Ok(response) => {
+                    if let Some(auth) = response.as_array().and_then(|arr| arr.first()) {
+                        // Check if the response indicates success
+                        if auth["_id"].is_string() {
+                            // Validate that the duration matches what was requested
+                            if let (Some(start), Some(end)) = (auth["start"].as_u64(), auth["end"].as_u64()) {
+                                let actual_minutes = (end - start) / 60;
+                                let expected_minutes = if *minutes < 0 { 0 } else { *minutes as u64 };
+                                
+                                if actual_minutes == expected_minutes {
+                                    println!("✅ Minutes = {}: {} accepted with correct duration", minutes, description);
+                                } else {
+                                    println!("⚠️ Minutes = {}: {} accepted but with adjusted duration: {}", 
+                                             minutes, description, actual_minutes);
+                                }
+                            } else {
+                                println!("⚠️ Minutes = {}: {} accepted but couldn't validate duration", 
+                                         minutes, description);
+                            }
+                        } else {
+                            println!("❌ Minutes = {}: {} failed - unexpected response structure", 
+                                     minutes, description);
+                        }
+                    } else {
+                        println!("❌ Minutes = {}: {} failed - empty or invalid response", 
+                                 minutes, description);
+                    }
+                },
+                Err(e) => {
+                    println!("❌ Minutes = {}: {} rejected with error: {}", minutes, description, e);
+                }
+            }
+            
+            // Add a small delay between requests to avoid overwhelming the controller
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        }
+        
+        println!("Minutes parameter range testing complete");
+        Ok(())
+    }
+
     pub async fn run_all_validations(&self) -> UnifiResult<()> {
         println!("Running guest validator...");
         self.validate_authorize_simple_duration().await?;
         self.validate_list_guests().await?;
         self.validate_unauthorize().await?;
+        self.validate_minutes_parameter_range().await?;
         Ok(())
     }
 }
