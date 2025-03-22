@@ -42,6 +42,10 @@ impl<'a> GuestApi<'a> {
     /// * `config` - Configuration options for the guest authorization, including
     ///   MAC address, duration, and bandwidth limits
     ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -59,10 +63,6 @@ impl<'a> GuestApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
     pub async fn authorize(&self, config: GuestConfig) -> Result<GuestEntry, UnifiError> {
         let mut client = self.client.clone();
         let site = self.client.site();
@@ -89,6 +89,10 @@ impl<'a> GuestApi<'a> {
     /// * `within` - Optional time frame in hours to look back for guest
     ///   authorizations (default: 8760 hours / 1 year)
     ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -102,10 +106,6 @@ impl<'a> GuestApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
     pub async fn list(&self, within: Option<u32>) -> Result<Vec<GuestEntry>, UnifiError> {
         let mut client = self.client.clone();
         let site = self.client.site();
@@ -124,6 +124,10 @@ impl<'a> GuestApi<'a> {
     ///
     /// * `mac` - MAC address of the guest device to unauthorize
     ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -133,10 +137,6 @@ impl<'a> GuestApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
     pub async fn unauthorize(&self, mac: impl Into<String>) -> Result<(), UnifiError> {
         let mut client = self.client.clone();
         let site = self.client.site();
@@ -155,6 +155,10 @@ impl<'a> GuestApi<'a> {
     /// This method retrieves all guest authorizations and then unauthorizes them one by one.
     /// Use with caution as this operation cannot be undone.
     ///
+    /// # Errors
+    ///
+    /// Returns an error if listing guests fails or if any guest unauthorization fails.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -164,10 +168,6 @@ impl<'a> GuestApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if listing guests fails or if any guest unauthorization fails.
     pub async fn unauthorize_all(&self) -> Result<(), UnifiError> {
         // Get all guests
         let all_guests = self.list(None).await?;

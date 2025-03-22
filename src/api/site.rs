@@ -31,6 +31,10 @@ impl<'a> SiteApi<'a> {
 
     /// Retrieves all sites from the UniFi controller.
     ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -42,10 +46,6 @@ impl<'a> SiteApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
     pub async fn list(&self) -> UnifiResult<Vec<Site>> {
         let mut client = self.client.clone();
 
@@ -62,6 +62,10 @@ impl<'a> SiteApi<'a> {
     ///
     /// * `site_id` - The unique identifier of the site to retrieve
     ///
+    /// # Errors
+    ///
+    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not accessible.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -71,10 +75,6 @@ impl<'a> SiteApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not accessible.
     pub async fn get(&self, site_id: &str) -> UnifiResult<Site> {
         let sites = self.list().await?;
 
@@ -93,6 +93,10 @@ impl<'a> SiteApi<'a> {
     ///
     /// * `name` - The name or description of the site to retrieve
     ///
+    /// # Errors
+    ///
+    /// Returns `UnifiError::SiteNotFound` if no site matches the provided name or description.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -103,10 +107,6 @@ impl<'a> SiteApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns `UnifiError::SiteNotFound` if no site matches the provided name or description.
     pub async fn get_by_name(&self, name: &str) -> UnifiResult<Site> {
         let sites = self.list().await?;
 
@@ -123,6 +123,10 @@ impl<'a> SiteApi<'a> {
     /// * `name` - The site name to use in API calls (should be URL-friendly)
     /// * `description` - The human-readable description of the site
     ///
+    /// # Errors
+    ///
+    /// Returns an error if the site creation fails or if a site with the same name already exists.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -132,10 +136,6 @@ impl<'a> SiteApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the site creation fails or if a site with the same name already exists.
     pub async fn create(&self, name: &str, description: &str) -> UnifiResult<Site> {
         let mut client = self.client.clone();
 
@@ -162,6 +162,10 @@ impl<'a> SiteApi<'a> {
     /// * `site_id` - The ID of the site to update
     /// * `description` - The new description for the site
     ///
+    /// # Errors
+    ///
+    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not accessible.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -173,10 +177,6 @@ impl<'a> SiteApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not accessible.
     pub async fn update(&self, site_id: &str, description: &str) -> UnifiResult<Site> {
         let mut client = self.client.clone();
 
@@ -207,6 +207,10 @@ impl<'a> SiteApi<'a> {
     ///
     /// * `site_id` - The ID of the site to delete
     ///
+    /// # Errors
+    ///
+    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not accessible.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -216,10 +220,6 @@ impl<'a> SiteApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not accessible.
     pub async fn delete(&self, site_id: &str) -> UnifiResult<()> {
         let mut client = self.client.clone();
 

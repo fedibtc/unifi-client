@@ -41,6 +41,10 @@ impl<'a> VoucherApi<'a> {
     /// * `config` - Configuration options for the vouchers to be created, including 
     ///   duration, count, bandwidth limits, and other options
     ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -58,10 +62,6 @@ impl<'a> VoucherApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
     pub async fn create(&self, config: VoucherConfig) -> UnifiResult<CreateVoucherResponse> {
         let mut client = self.client.clone();
         let site = self.client.site();
@@ -87,6 +87,10 @@ impl<'a> VoucherApi<'a> {
     ///
     /// * `voucher_id` - The unique identifier of the voucher to delete
     ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or if the voucher cannot be deleted.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -96,10 +100,6 @@ impl<'a> VoucherApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the request fails or if the voucher cannot be deleted.
     pub async fn delete(&self, voucher_id: &str) -> UnifiResult<()> {
         let mut client = self.client.clone();
         let site = self.client.site();
@@ -122,6 +122,10 @@ impl<'a> VoucherApi<'a> {
     /// This method retrieves all vouchers and then deletes them one by one.
     /// Use with caution as this operation cannot be undone.
     ///
+    /// # Errors
+    ///
+    /// Returns an error if listing vouchers fails or if any voucher deletion fails.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -131,10 +135,6 @@ impl<'a> VoucherApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if listing vouchers fails or if any voucher deletion fails.
     pub async fn delete_all(&self) -> UnifiResult<()> {
         // Get all vouchers
         let vouchers = self.list().await?;
@@ -153,6 +153,10 @@ impl<'a> VoucherApi<'a> {
     ///
     /// * `create_time` - Unix timestamp (seconds since epoch) used to filter vouchers
     ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -164,10 +168,6 @@ impl<'a> VoucherApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
     pub async fn get_by_create_time(&self, create_time: u64) -> UnifiResult<Vec<Voucher>> {
         let mut client = self.client.clone();
         let site = self.client.site();
@@ -186,21 +186,21 @@ impl<'a> VoucherApi<'a> {
 
     /// Retrieves all vouchers from the UniFi controller.
     ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or if the UniFi controller returns an error response.
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
     /// let vouchers = client.vouchers().list().await?;
     /// for voucher in vouchers {
-    ///     println!("Voucher code: {}, expires: {}", voucher.code, voucher.end_time);
+    ///     println!("Voucher code: {}, duration: {}", voucher.code, voucher.duration);
     /// }
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the request fails or if the UniFi controller returns an error response.
     pub async fn list(&self) -> UnifiResult<Vec<Voucher>> {
         let mut client = self.client.clone();
         let site = self.client.site();
