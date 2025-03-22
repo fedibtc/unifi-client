@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::UnifiError;
 
-/// Request to authorize a guest.
+/// Request to authorize a guest for network access.
+///
+/// This represents the API request body for the authorize-guest command.
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthorizeGuestRequest {
     /// Command to authorize a guest.
@@ -42,7 +44,10 @@ impl TryFrom<GuestConfig> for AuthorizeGuestRequest {
     }
 }
 
-/// Configuration for authorizing guests.
+/// Configuration for authorizing guest network access.
+///
+/// This struct is used to configure the parameters for guest authorization,
+/// including duration, bandwidth limits, and data quotas.
 #[derive(Default)]
 pub struct GuestConfig {
     /// Client MAC address
@@ -66,7 +71,10 @@ impl GuestConfig {
     }
 }
 
-/// Builder for guest configuration.
+/// Builder for creating guest configuration in a fluent style.
+///
+/// This builder provides a convenient way to create guest configurations
+/// with optional parameters.
 #[derive(Default)]
 pub struct GuestConfigBuilder {
     config: GuestConfig,
@@ -118,7 +126,13 @@ impl GuestConfigBuilder {
     }
 }
 
-/// Represents the status and details of a guest authorization
+/// Represents the status and details of a guest network authorization.
+///
+/// This enum represents different states of a guest authorization in the UniFi system.
+/// It can be in one of three states:
+/// - Active: Guest is authorized and currently connected
+/// - Inactive: Guest authorization exists but is not currently in use or has expired
+/// - New: Guest has just been authorized through the API
 ///
 /// Fields used by all guest entries:
 /// - `id`: The unique identifier for this authorization
@@ -128,13 +142,13 @@ impl GuestConfigBuilder {
 /// - `site_id`: The site ID where this guest was authorized
 /// - `start`: When the authorization starts (Unix timestamp)
 ///
-/// Fields used by active guest entries:
+/// Fields used by Active guest entries:
 /// - `bytes`: The total data transfer limit in MB
 /// - `expired`: Whether the authorization has expired
 /// - `rx_bytes`: The total data received in MB
 /// - `tx_bytes`: The total data transmitted in MB
 ///
-/// Fields used by inactive guest entries:
+/// Fields used by Inactive guest entries:
 /// - `expired`: Whether the authorization has expired
 /// - `unauthorized_by`: Who or what unauthorized the guest
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -240,7 +254,9 @@ impl GuestEntry {
     }
 }
 
-/// Request to unauthorize a guest.
+/// Request to revoke network access for a guest device.
+///
+/// This represents the API request body for the unauthorize-guest command.
 #[derive(Debug, Clone, Serialize)]
 pub struct UnauthorizeGuestRequest {
     /// Command to unauthorize a guest.
@@ -250,7 +266,19 @@ pub struct UnauthorizeGuestRequest {
 }
 
 impl UnauthorizeGuestRequest {
-    /// Create a new guest unauthorization request.
+    /// Creates a new request to unauthorize a guest device.
+    ///
+    /// # Arguments
+    ///
+    /// * `mac` - MAC address of the guest device to unauthorize
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use unifi_client::UnauthorizeGuestRequest;
+    ///
+    /// let request = UnauthorizeGuestRequest::new("00:11:22:33:44:55");
+    /// ```
     pub fn new(mac: impl Into<String>) -> Self {
         Self {
             cmd: "unauthorize-guest".to_string(),
