@@ -89,11 +89,11 @@ async fn authorize_guest(
     // Validate the payload
     if let Err(errors) = payload.validate() {
         return Err((
-            StatusCode::BAD_REQUEST, 
-            format!("Invalid request parameters: {}", errors)
+            StatusCode::BAD_REQUEST,
+            format!("Invalid request parameters: {}", errors),
         ));
     }
-    
+
     // Build the guest config.
     let mut config_builder = GuestConfig::builder().mac(&payload.mac_address);
     if let Some(duration) = payload.duration_minutes {
@@ -175,7 +175,10 @@ async fn main() {
 
     // Load application configuration from environment variables.
     let config = AppConfig::new().expect("Failed to load configuration");
-    tracing::info!("Starting UniFi Cafe backend with configuration: {:?}", config);
+    tracing::info!(
+        "Starting UniFi Cafe backend with configuration: {:?}",
+        config
+    );
 
     // Build the UniFi client configuration.
     let unifi_client_config = ClientConfig::builder()
