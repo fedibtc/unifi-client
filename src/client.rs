@@ -1,5 +1,5 @@
 use std::fmt;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, COOKIE};
 use reqwest::{Client as ReqwestClient, Method, StatusCode};
@@ -196,7 +196,6 @@ impl ClientConfigBuilder {
 struct AuthState {
     cookies: String,
     csrf_token: Option<String>,
-    last_auth_time: Instant,
 }
 
 /// The main UniFi client for interacting with the UniFi Controller API.
@@ -355,26 +354,74 @@ impl UnifiClient {
         self.auth_state = Some(AuthState {
             cookies: cookie_header,
             csrf_token,
-            last_auth_time: Instant::now(),
         });
 
         Ok(())
     }
 
-    /// Ensure the client is authenticated.
+    /// Ensure the client is authenticated by making a lightweight API call.
+    /// If the call fails with an authentication error, re-authenticate.
     async fn ensure_authenticated(&mut self) -> UnifiResult<()> {
         if self.auth_state.is_none() {
             return Err(UnifiError::NotAuthenticated);
         }
 
-        // Check if authentication is older than 1 hour
-        let auth_age = self.auth_state.as_ref().unwrap().last_auth_time.elapsed();
-        if auth_age > Duration::from_secs(3600) {
-            // Re-authenticate
-            self.login(None).await?;
+        // Try to access a lightweight endpoint to verify authentication
+        let url = self
+            .config
+            .controller_url
+            .join("/api/self")
+            .map_err(|e| UnifiError::UrlParseError(e))?;
+
+        // Make the request but handle authentication errors specially
+        match self.http_client
+            .get(url)
+            .headers(self.get_auth_headers()?)
+            .send()
+            .await
+        {
+            Ok(response) => {
+                if response.status().is_success() {
+                    // Session is still valid
+                    return Ok(());
+                } else if response.status() == StatusCode::UNAUTHORIZED {
+                    // Session expired, need to re-authenticate
+                    self.login(None).await?;
+                } else {
+                    // Some other API error, but authentication might still be valid
+                }
+            },
+            Err(_e) => {
+                // Could be a network error or other issue
+                // We'll try to re-authenticate just in case
+                self.login(None).await?;
+            }
         }
 
         Ok(())
+    }
+
+    // Helper to get authentication headers
+    fn get_auth_headers(&self) -> UnifiResult<HeaderMap> {
+        let auth_state = self.auth_state.as_ref()
+            .ok_or(UnifiError::NotAuthenticated)?;
+        
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            COOKIE,
+            HeaderValue::from_str(&auth_state.cookies)
+                .map_err(|e| UnifiError::ApiError(format!("Invalid cookie header: {}", e)))?,
+        );
+
+        if let Some(token) = &auth_state.csrf_token {
+            headers.insert(
+                "x-csrf-token",
+                HeaderValue::from_str(token)
+                    .map_err(|e| UnifiError::ApiError(format!("Invalid CSRF token: {}", e)))?,
+            );
+        }
+        
+        Ok(headers)
     }
 
     /// Makes a raw request to the UniFi API.
