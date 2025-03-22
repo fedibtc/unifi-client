@@ -57,7 +57,7 @@ Request body:
 ```json
 {
   "mac": "00:11:22:33:44:55",
-  "data_quota_mb": 512,
+  "data_quota_megabytes": 512,
   "duration_minutes": 60
 }
 ```

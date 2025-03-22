@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -8,70 +10,19 @@ use axum::{Json, Router};
 use chrono::{DateTime, Utc};
 use config::{Config, ConfigError, Environment};
 use dotenv::dotenv;
-use once_cell::sync::Lazy;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use unifi_client::{ClientConfig, GuestConfig, GuestEntry, UnifiClient};
-use validator::{Validate, ValidateArgs, ValidationError};
 
-// Context struct for validation limits
-#[derive(Clone)]
-struct ValidationLimits {
-    max_duration_minutes: u32,
-    max_data_quota_megabytes: u64,
-}
-
-fn validate_duration(duration_minutes: u32, context: &ValidationLimits) -> Result<(), ValidationError> {
-    if duration_minutes < 1 {
-        return Err(ValidationError::new("Duration must be positive"));
-    }
-    if duration_minutes > context.max_duration_minutes {
-        let mut err = ValidationError::new("duration_too_large");
-        err.message = Some(format!("Duration must be between 1 and {} minutes", 
-            context.max_duration_minutes).into());
-        return Err(err);
-    }
-    Ok(())
-}
-
-fn validate_data_quota(data_quota_megabytes: u64, context: &ValidationLimits) -> Result<(), ValidationError> {
-    if data_quota_megabytes < 1 {
-        return Err(ValidationError::new("Data quota must be positive"));
-    }
-    if data_quota_megabytes > context.max_data_quota_megabytes {
-        let mut err = ValidationError::new("quota_too_large");
-        err.message = Some(format!("Data quota must be between 1 and {} MB", 
-            context.max_data_quota_megabytes).into());
-        return Err(err);
-    }
-    Ok(())
-}
-
-#[derive(Debug, Validate, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[validate(context = ValidationLimits)]
+#[derive(Deserialize)]
 struct GuestAuthRequest {
-    #[validate(
-        regex(
-            path = *MAC_ADDRESS_REGEX,
-            message = "MAC address must be in format 00:11:22:33:44:55 with colons and exactly two hex digits per segment"
-        )
-    )]
-    mac_address: String,
-
-    #[validate(custom(function = validate_duration, use_context))]
-    duration_minutes: Option<u32>,
-
-    #[validate(custom(function = validate_data_quota, use_context))]
-    data_quota_megabytes: Option<u64>,
+    mac_address: String,               // mac address
+    duration_minutes: Option<u32>,     // duration in minutes
+    data_quota_megabytes: Option<u64>, // data quota in MB
 }
-
-static MAC_ADDRESS_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$").unwrap());
 
 #[derive(Serialize)]
 struct GuestAuthResponse {
@@ -90,8 +41,6 @@ struct AppConfig {
     unifi_site: String,
     verify_ssl: bool,
     port: u16,
-    max_duration_minutes: u32,
-    max_data_quota_megabytes: u64,
 }
 
 impl AppConfig {
@@ -119,8 +68,6 @@ impl fmt::Debug for AppConfig {
             .field("unifi_site", &self.unifi_site)
             .field("verify_ssl", &self.verify_ssl)
             .field("port", &self.port)
-            .field("max_duration_minutes", &self.max_duration_minutes)
-            .field("max_data_quota_megabytes", &self.max_data_quota_megabytes)
             .finish()
     }
 }
@@ -128,26 +75,41 @@ impl fmt::Debug for AppConfig {
 // Shared application state
 #[derive(Clone)]
 struct AppState {
-    config: AppConfig,
+    sessions: SessionStore,
     unifi_client: std::sync::Arc<Mutex<UnifiClient>>,
 }
+
+// Active session tracking
+#[derive(Debug, Clone)]
+struct Session {
+    data_quota: Option<u64>,
+    expires_at: i64,
+    guest_id: String,
+}
+
+type SessionStore = Arc<Mutex<HashMap<String, Session>>>;
 
 async fn authorize_guest(
     State(state): State<AppState>,
     Json(payload): Json<GuestAuthRequest>,
-) -> Result<Json<GuestAuthResponse>, (StatusCode, String)> {
-    // Create validation context with limits from config
-    let validation_limits = ValidationLimits {
-        max_duration_minutes: state.config.max_duration_minutes,
-        max_data_quota_megabytes: state.config.max_data_quota_megabytes,
-    };
+) -> Json<GuestAuthResponse> {
+    // Check if session already exists
+    {
+        let sessions = state.sessions.lock().unwrap();
+        if let Some(session) = sessions.get(&request.mac) {
+            let current_time = SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
 
-    // Validate the payload
-    if let Err(errors) = payload.validate_with_args(&validation_limits) {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            format!("Invalid request parameters: {}", errors),
-        ));
+            if session.expires_at > current_time {
+                return Ok(Json(AuthorizeResponse {
+                    authorized: true,
+                    expires_at: Some(session.expires_at),
+                    message: Some("Session already active".to_string()),
+                }));
+            }
+        }
     }
 
     // Build the guest config.
@@ -202,19 +164,33 @@ async fn authorize_guest(
                 quota_info
             );
 
-            Ok(Json(GuestAuthResponse {
+            // Store session
+            {
+                let mut sessions = state.sessions.lock().await;
+                sessions.insert(
+                    mac.clone(),
+                    Session {
+                        data_quota: payload.data_quota_megabytes,
+                        expires_at: end,
+                        guest_id: id.clone(),
+                    },
+                );
+            }
+
+            Json(GuestAuthResponse {
                 data_quota: payload.data_quota_megabytes,
                 expires_at: end,
                 guest_id: id,
                 mac,
-            }))
+            })
         }
         unexpected => {
             tracing::error!("Unexpected guest entry type: {:?}", unexpected);
-            Err((
+            return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Unexpected guest entry type received".to_string(),
             ))
+            .unwrap();
         }
     }
 }
@@ -260,7 +236,7 @@ async fn main() {
 
     // Create shared state with the authenticated UniFi client and session store.
     let state = AppState {
-        config: config.clone(),
+        sessions: SessionStore::new(Mutex::new(HashMap::new())),
         unifi_client: std::sync::Arc::new(Mutex::new(unifi_client)),
     };
 
