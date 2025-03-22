@@ -285,12 +285,127 @@ impl GuestValidator {
         Ok(())
     }
 
+    async fn validate_mac_address_formats(&self) -> UnifiResult<()> {
+        let mut client = self.client.clone();
+        let site = self.client.site();
+        let endpoint = format!("/api/s/{}/cmd/stamgr", site);
+        
+        println!("Testing MAC address format acceptance...");
+        
+        // Generate a random MAC in standard format
+        let standard_mac = random_mac(); // This is colon-separated: 00:11:22:33:44:55
+        
+        // Create variations of the same MAC
+        let without_colons = standard_mac.replace(":", ""); // 001122334455
+        let with_hyphens = standard_mac.replace(":", "-");  // 00-11-22-33-44-55
+        let uppercase = standard_mac.to_uppercase();        // 00:11:22:33:44:55
+        let mixed_case = standard_mac.chars()
+            .enumerate()
+            .map(|(i, c)| if i % 2 == 0 { c.to_ascii_uppercase() } else { c })
+            .collect::<String>();                          // 0A:1B:2C:3D:4E:5F
+        
+        // Test different formats
+        let test_formats = [
+            (standard_mac.clone(), "Standard colon-separated (00:11:22:33:44:55)"),
+            (without_colons, "No separators (001122334455)"),
+            (with_hyphens, "Hyphen-separated (00-11-22-33-44-55)"),
+            (uppercase, "Uppercase (00:11:22:33:44:55)"),
+            (mixed_case, "Mixed case (0A:1B:2C:3D:4E:5F)"),
+        ];
+        
+        for (mac, description) in &test_formats {
+            // Create authorization request
+            let payload = serde_json::json!({
+                "cmd": "authorize-guest",
+                "mac": mac,
+                "minutes": 5, // Short duration to avoid cluttering the system
+            });
+            
+            // Make raw API call and check if it succeeds
+            let result = client.raw_request("POST", &endpoint, Some(payload)).await;
+            
+            match result {
+                Ok(response) => {
+                    if let Some(auth) = response.as_array().and_then(|arr| arr.first()) {
+                        // Check if the response indicates success and includes a MAC
+                        if let Some(returned_mac) = auth["mac"].as_str() {
+                            // Check if the returned MAC is normalized to a particular format
+                            if returned_mac == &standard_mac {
+                                println!("✅ Format accepted: {} - Controller returned standard format", description);
+                            } else {
+                                println!("✅ Format accepted: {} - Controller normalized to: {}", description, returned_mac);
+                            }
+                        } else {
+                            println!("⚠️ Format potentially accepted: {} - But no MAC in response", description);
+                        }
+                    } else {
+                        println!("❌ Format rejected: {} - Empty or invalid response", description);
+                    }
+                },
+                Err(e) => {
+                    println!("❌ Format rejected: {} - Error: {}", description, e);
+                }
+            }
+            
+            // Add a small delay between requests
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        }
+        
+        // Additional edge cases worth testing
+        let edge_cases = [
+            ("0:1:2:3:4:5", "Short single digits"),
+            ("0:11:22:33:44:55", "Missing leading zero"),
+            ("000:111:222:333:444:555", "Extra digits"),
+            ("00:11:22:33:44", "Incomplete (5 octets)"),
+            ("00:11:22:33:44:55:66", "Too long (7 octets)"),
+            ("GG:HH:II:JJ:KK:LL", "Invalid hex characters"),
+        ];
+        
+        println!("\nTesting edge cases...");
+        for (mac, description) in &edge_cases {
+            // Create authorization request
+            let payload = serde_json::json!({
+                "cmd": "authorize-guest",
+                "mac": mac,
+                "minutes": 5,
+            });
+            
+            // Make raw API call and check if it succeeds
+            let result = client.raw_request("POST", &endpoint, Some(payload)).await;
+            
+            match result {
+                Ok(response) => {
+                    if let Some(auth) = response.as_array().and_then(|arr| arr.first()) {
+                        // Check if the response indicates success and includes a MAC
+                        if let Some(returned_mac) = auth["mac"].as_str() {
+                            println!("✅ Edge case accepted: {} - Controller normalized to: {}", description, returned_mac);
+                        } else {
+                            println!("⚠️ Edge case potentially accepted: {} - But no MAC in response", description);
+                        }
+                    } else {
+                        println!("❌ Edge case rejected: {} - Empty or invalid response", description);
+                    }
+                },
+                Err(e) => {
+                    println!("❌ Edge case rejected: {} - Error: {}", description, e);
+                }
+            }
+            
+            // Add a small delay between requests
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        }
+        
+        println!("MAC address format testing complete");
+        Ok(())
+    }
+
     pub async fn run_all_validations(&self) -> UnifiResult<()> {
         println!("Running guest validator...");
         self.validate_authorize_simple_duration().await?;
         self.validate_list_guests().await?;
         self.validate_unauthorize().await?;
         self.validate_minutes_parameter_range().await?;
+        self.validate_mac_address_formats().await?;
         Ok(())
     }
 }

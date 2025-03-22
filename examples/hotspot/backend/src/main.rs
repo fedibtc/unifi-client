@@ -14,12 +14,18 @@ use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use unifi_client::{ClientConfig, GuestConfig, GuestEntry, UnifiClient};
+use validator::Validate;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 struct GuestAuthRequest {
-    mac_address: String,           // mac address
-    duration_minutes: Option<u32>, // duration in minutes
-    data_quota_mb: Option<u64>,    // data quota in MB
+    #[validate(length(min = 12, max = 17, message = "MAC address must be in a valid format"))]
+    mac_address: String,
+    
+    #[validate(range(min = 1, max = 43200, message = "Duration must be between 1 and 43200 minutes (30 days)"))]
+    duration_minutes: Option<u32>,
+    
+    #[validate(range(min = 1, message = "Data quota must be positive"))]
+    data_quota_megabytes: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -79,13 +85,21 @@ struct AppState {
 async fn authorize_guest(
     State(state): State<AppState>,
     Json(payload): Json<GuestAuthRequest>,
-) -> Json<GuestAuthResponse> {
+) -> Result<Json<GuestAuthResponse>, (StatusCode, String)> {
+    // Validate the payload
+    if let Err(errors) = payload.validate() {
+        return Err((
+            StatusCode::BAD_REQUEST, 
+            format!("Invalid request parameters: {}", errors)
+        ));
+    }
+    
     // Build the guest config.
     let mut config_builder = GuestConfig::builder().mac(&payload.mac_address);
     if let Some(duration) = payload.duration_minutes {
         config_builder = config_builder.duration(duration);
     }
-    if let Some(quota) = payload.data_quota_mb {
+    if let Some(quota) = payload.data_quota_megabytes {
         config_builder = config_builder.data_quota(quota);
     }
     let guest_config = config_builder
@@ -119,7 +133,7 @@ async fn authorize_guest(
         GuestEntry::New { id, end, mac, .. } => {
             let expiration_time = DateTime::<Utc>::from_timestamp(end, 0).unwrap_or_default();
 
-            let quota_info = if let Some(quota) = payload.data_quota_mb {
+            let quota_info = if let Some(quota) = payload.data_quota_megabytes {
                 format!(" with data quota of {} MB", quota)
             } else {
                 String::new()
@@ -132,20 +146,19 @@ async fn authorize_guest(
                 quota_info
             );
 
-            Json(GuestAuthResponse {
-                data_quota: payload.data_quota_mb,
+            Ok(Json(GuestAuthResponse {
+                data_quota: payload.data_quota_megabytes,
                 expires_at: end,
                 guest_id: id,
                 mac,
-            })
+            }))
         }
         unexpected => {
             tracing::error!("Unexpected guest entry type: {:?}", unexpected);
-            return Err((
+            Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Unexpected guest entry type received".to_string(),
             ))
-            .unwrap();
         }
     }
 }
