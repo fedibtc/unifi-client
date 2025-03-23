@@ -277,6 +277,7 @@ async fn main() {
     let unifi_client_config = ClientConfig::builder()
         .controller_url(&config.unifi_controller_url)
         .username(&config.unifi_username)
+        .password(&config.unifi_password)
         .site(&config.unifi_site)
         .verify_ssl(config.verify_ssl)
         .build()
@@ -290,7 +291,7 @@ async fn main() {
 
     // Login to the UniFi controller.
     unifi_client
-        .login(Some(config.unifi_password.clone()))
+        .login(None)
         .await
         .expect("Failed to authenticate with UniFi controller");
     tracing::info!("Authentication successful!");
