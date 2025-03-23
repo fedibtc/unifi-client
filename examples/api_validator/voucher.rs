@@ -1,17 +1,17 @@
 use serde_json::Value;
 use std::time::{SystemTime, UNIX_EPOCH};
-use unifi_client::{UnifiClient, UnifiError, UnifiResult, VoucherExpireUnit};
+use unifi_client::{UniFiClient, UniFiError, UniFiResult, VoucherExpireUnit};
 
 pub struct VoucherValidator {
-    client: UnifiClient,
+    client: UniFiClient,
 }
 
 impl VoucherValidator {
-    pub fn new(client: UnifiClient) -> Self {
+    pub fn new(client: UniFiClient) -> Self {
         Self { client }
     }
 
-    async fn validate_simple_duration(&self) -> UnifiResult<()> {
+    async fn validate_simple_duration(&self) -> UniFiResult<()> {
         let mut client = self.client.clone();
         
         // Create a voucher with 30 minute duration
@@ -33,7 +33,7 @@ impl VoucherValidator {
             .and_then(|arr| arr.first())
             .and_then(|obj| obj.get("create_time"))
             .and_then(|time| time.as_i64())
-            .ok_or_else(|| UnifiError::ApiError("Invalid create-voucher response format".into()))?;
+            .ok_or_else(|| UniFiError::ApiError("Invalid create-voucher response format".into()))?;
 
         // Validate the created voucher
         let get_endpoint = format!("/api/s/{}/stat/voucher", site);
@@ -55,7 +55,7 @@ impl VoucherValidator {
         Ok(())
     }
 
-    async fn validate_minutes_unit_duration(&self) -> UnifiResult<()> {
+    async fn validate_minutes_unit_duration(&self) -> UniFiResult<()> {
         let mut client = self.client.clone();
         
         // Create a voucher with 5 minute duration
@@ -98,7 +98,7 @@ impl VoucherValidator {
         Ok(())
     }
 
-    async fn validate_hours_unit_duration(&self) -> UnifiResult<()> {
+    async fn validate_hours_unit_duration(&self) -> UniFiResult<()> {
         let mut client = self.client.clone();
         
         // Create a voucher with 5 hour duration
@@ -141,7 +141,7 @@ impl VoucherValidator {
         Ok(())
     }
 
-    async fn validate_voucher_note(&self) -> UnifiResult<()> {
+    async fn validate_voucher_note(&self) -> UniFiResult<()> {
         let mut client = self.client.clone();
         
         let test_note = "Test note for validation";
@@ -164,7 +164,7 @@ impl VoucherValidator {
             .and_then(|arr| arr.first())
             .and_then(|obj| obj.get("create_time"))
             .and_then(|time| time.as_i64())
-            .ok_or_else(|| UnifiError::ApiError("Invalid create-voucher response format".into()))?;
+            .ok_or_else(|| UniFiError::ApiError("Invalid create-voucher response format".into()))?;
 
         // Validate the created voucher
         let get_endpoint = format!("/api/s/{}/stat/voucher", site);
@@ -187,7 +187,7 @@ impl VoucherValidator {
         Ok(())
     }
 
-    async fn validate_data_transmit_limit(&self) -> UnifiResult<()> {
+    async fn validate_data_transmit_limit(&self) -> UniFiResult<()> {
         let mut client = self.client.clone();
         
         let data_quota = 1000; // Test with 1GB quota
@@ -210,7 +210,7 @@ impl VoucherValidator {
             .and_then(|arr| arr.first())
             .and_then(|obj| obj.get("create_time"))
             .and_then(|time| time.as_i64())
-            .ok_or_else(|| UnifiError::ApiError("Invalid create-voucher response format".into()))?;
+            .ok_or_else(|| UniFiError::ApiError("Invalid create-voucher response format".into()))?;
 
         // Validate the created voucher
         let get_endpoint = format!("/api/s/{}/stat/voucher", site);
@@ -237,7 +237,7 @@ impl VoucherValidator {
         Ok(())
     }
 
-    pub async fn run_all_validations(&mut self) -> UnifiResult<()> {
+    pub async fn run_all_validations(&mut self) -> UniFiResult<()> {
         println!("Running voucher validator...");
         self.validate_simple_duration().await?;
         self.validate_minutes_unit_duration().await?;

@@ -10,7 +10,7 @@ use serde_json::Value;
 use url::Url;
 
 use crate::{
-    ApiResponse, EmptyResponse, GuestApi, LoginRequest, SiteApi, UnifiError, UnifiResult,
+    ApiResponse, EmptyResponse, GuestApi, LoginRequest, SiteApi, UniFiError, UniFiResult,
     VoucherApi,
 };
 
@@ -162,18 +162,18 @@ impl ClientConfigBuilder {
     /// Returns an error if required fields are missing or invalid:
     /// - Controller URL is required and must be a valid URL
     /// - Username is required
-    pub fn build(self) -> UnifiResult<ClientConfig> {
+    pub fn build(self) -> UniFiResult<ClientConfig> {
         let controller_url = self
             .controller_url
-            .ok_or_else(|| UnifiError::ConfigurationError("Controller URL is required".into()))?;
+            .ok_or_else(|| UniFiError::ConfigurationError("Controller URL is required".into()))?;
 
         let url = Url::parse(&controller_url).map_err(|e| {
-            UnifiError::ConfigurationError(format!("Invalid controller URL: {}", e))
+            UniFiError::ConfigurationError(format!("Invalid controller URL: {}", e))
         })?;
 
         let username = self
             .username
-            .ok_or_else(|| UnifiError::ConfigurationError("Username is required".into()))?;
+            .ok_or_else(|| UniFiError::ConfigurationError("Username is required".into()))?;
 
         let site = self.site.unwrap_or_else(|| "default".to_string());
 
@@ -202,22 +202,22 @@ struct AuthState {
 ///
 /// This client manages authentication, request handling, and provides access
 /// to the various API endpoints through dedicated API objects.
-pub struct UnifiClient {
+pub struct UniFiClient {
     pub(crate) config: ClientConfig,
     http_client: ReqwestClient,
     auth_state: Option<AuthState>,
 }
 
-impl fmt::Debug for UnifiClient {
+impl fmt::Debug for UniFiClient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("UnifiClient")
+        f.debug_struct("UniFiClient")
             .field("config", &self.config)
             .field("auth_state", &self.auth_state.is_some())
             .finish()
     }
 }
 
-impl UnifiClient {
+impl UniFiClient {
     /// Creates a new UniFi client with the given configuration.
     ///
     /// # Arguments
@@ -227,7 +227,7 @@ impl UnifiClient {
     /// # Examples
     ///
     /// ```no_run
-    /// use unifi_client::{ClientConfig, UnifiClient};
+    /// use unifi_client::{ClientConfig, UniFiClient};
     ///
     /// let config = ClientConfig::builder()
     ///     .controller_url("https://unifi.example.com:8443")
@@ -236,7 +236,7 @@ impl UnifiClient {
     ///     .build()
     ///     .expect("Failed to build client config");
     ///
-    /// let client = UnifiClient::new(config);
+    /// let client = UniFiClient::new(config);
     /// ```
     pub fn new(config: ClientConfig) -> Self {
         let http_client = ReqwestClient::builder()
@@ -272,13 +272,13 @@ impl UnifiClient {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example() -> Result<(), unifi_client::UnifiError> {
-    /// # use unifi_client::{ClientConfig, UnifiClient};
+    /// # async fn example() -> Result<(), unifi_client::UniFiError> {
+    /// # use unifi_client::{ClientConfig, UniFiClient};
     /// # let config = ClientConfig::builder()
     /// #    .controller_url("https://unifi.example.com")
     /// #    .username("admin")
     /// #    .build()?;
-    /// let mut client = UnifiClient::new(config);
+    /// let mut client = UniFiClient::new(config);
     ///
     /// // Login with explicit password
     /// client.login(Some("password123".to_string())).await?;
@@ -288,12 +288,12 @@ impl UnifiClient {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn login(&mut self, password: Option<String>) -> UnifiResult<()> {
+    pub async fn login(&mut self, password: Option<String>) -> UniFiResult<()> {
         let password = match (password, &self.config.password) {
             (Some(pwd), _) => pwd,
             (None, Some(pwd)) => pwd.clone(),
             (None, None) => prompt_password("Enter UniFi controller password: ").map_err(|e| {
-                UnifiError::AuthenticationError(format!("Failed to read password: {}", e))
+                UniFiError::AuthenticationError(format!("Failed to read password: {}", e))
             })?,
         };
 
@@ -301,7 +301,7 @@ impl UnifiClient {
             .config
             .controller_url
             .join("/api/login")
-            .map_err(|e| UnifiError::UrlParseError(e))?;
+            .map_err(|e| UniFiError::UrlParseError(e))?;
 
         let login_data = LoginRequest {
             username: self.config.username.clone(),
@@ -311,7 +311,7 @@ impl UnifiClient {
         let response = self.http_client.post(login_url).json(&login_data).send().await?;
 
         if !response.status().is_success() {
-            return Err(UnifiError::AuthenticationError(format!(
+            return Err(UniFiError::AuthenticationError(format!(
                 "Authentication failed with status code: {}",
                 response.status()
             )));
@@ -322,10 +322,10 @@ impl UnifiClient {
             .headers()
             .get("set-cookie")
             .ok_or_else(|| {
-                UnifiError::AuthenticationError("No cookies received from server".into())
+                UniFiError::AuthenticationError("No cookies received from server".into())
             })?
             .to_str()
-            .map_err(|e| UnifiError::AuthenticationError(format!("Invalid cookie header: {}", e)))?
+            .map_err(|e| UniFiError::AuthenticationError(format!("Invalid cookie header: {}", e)))?
             .to_string();
 
         // Extract CSRF token if present
@@ -338,7 +338,7 @@ impl UnifiClient {
         let login_response: ApiResponse<Vec<EmptyResponse>> = response.json().await?;
 
         if login_response.meta.rc != "ok" {
-            return Err(UnifiError::AuthenticationError(
+            return Err(UniFiError::AuthenticationError(
                 login_response.meta.msg.unwrap_or_else(|| "Unknown error".into()),
             ));
         }
@@ -353,9 +353,9 @@ impl UnifiClient {
 
     /// Ensure the client is authenticated by making a lightweight API call.
     /// If the call fails with an authentication error, re-authenticate.
-    async fn ensure_authenticated(&mut self) -> UnifiResult<()> {
+    async fn ensure_authenticated(&mut self) -> UniFiResult<()> {
         if self.auth_state.is_none() {
-            return Err(UnifiError::NotAuthenticated);
+            return Err(UniFiError::NotAuthenticated);
         }
 
         // Try to access a lightweight endpoint to verify authentication
@@ -363,7 +363,7 @@ impl UnifiClient {
             .config
             .controller_url
             .join("/api/self")
-            .map_err(|e| UnifiError::UrlParseError(e))?;
+            .map_err(|e| UniFiError::UrlParseError(e))?;
 
         // Make the request but handle authentication errors specially
         match self.http_client.get(url).headers(self.get_auth_headers()?).send().await {
@@ -390,21 +390,21 @@ impl UnifiClient {
     }
 
     // Helper to get authentication headers
-    fn get_auth_headers(&self) -> UnifiResult<HeaderMap> {
-        let auth_state = self.auth_state.as_ref().ok_or(UnifiError::NotAuthenticated)?;
+    fn get_auth_headers(&self) -> UniFiResult<HeaderMap> {
+        let auth_state = self.auth_state.as_ref().ok_or(UniFiError::NotAuthenticated)?;
 
         let mut headers = HeaderMap::new();
         headers.insert(
             COOKIE,
             HeaderValue::from_str(&auth_state.cookies)
-                .map_err(|e| UnifiError::ApiError(format!("Invalid cookie header: {}", e)))?,
+                .map_err(|e| UniFiError::ApiError(format!("Invalid cookie header: {}", e)))?,
         );
 
         if let Some(token) = &auth_state.csrf_token {
             headers.insert(
                 "x-csrf-token",
                 HeaderValue::from_str(token)
-                    .map_err(|e| UnifiError::ApiError(format!("Invalid CSRF token: {}", e)))?,
+                    .map_err(|e| UniFiError::ApiError(format!("Invalid CSRF token: {}", e)))?,
             );
         }
 
@@ -434,14 +434,14 @@ impl UnifiClient {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example() -> Result<(), unifi_client::UnifiError> {
-    /// # use unifi_client::{ClientConfig, UnifiClient};
+    /// # async fn example() -> Result<(), unifi_client::UniFiError> {
+    /// # use unifi_client::{ClientConfig, UniFiClient};
     /// # let config = ClientConfig::builder()
     /// #    .controller_url("https://unifi.example.com")
     /// #    .username("admin")
     /// #    .password("password")
     /// #    .build()?;
-    /// # let mut client = UnifiClient::new(config);
+    /// # let mut client = UniFiClient::new(config);
     /// # client.login(None).await?;
     /// // Get system status with a raw request
     /// let status = client.raw_request("GET", "/api/s/default/stat/sysinfo", None::<()>).await?;
@@ -454,14 +454,14 @@ impl UnifiClient {
         method: &str,
         endpoint: &str,
         body: Option<T>,
-    ) -> UnifiResult<Value>
+    ) -> UniFiResult<Value>
     where
         T: Serialize,
     {
         self.ensure_authenticated().await?;
 
         let url =
-            self.config.controller_url.join(endpoint).map_err(|e| UnifiError::UrlParseError(e))?;
+            self.config.controller_url.join(endpoint).map_err(|e| UniFiError::UrlParseError(e))?;
 
         let mut request = self
             .http_client
@@ -477,7 +477,7 @@ impl UnifiClient {
         let api_response: ApiResponse<Value> = response.json().await?;
 
         if api_response.meta.rc != "ok" {
-            return Err(UnifiError::ApiError(
+            return Err(UniFiError::ApiError(
                 api_response.meta.msg.unwrap_or_else(|| "Unknown API error".into()),
             ));
         }
@@ -491,7 +491,7 @@ impl UnifiClient {
         method: Method,
         endpoint: &str,
         body: Option<T>,
-    ) -> UnifiResult<R>
+    ) -> UniFiResult<R>
     where
         T: Serialize,
         R: DeserializeOwned,
@@ -499,7 +499,7 @@ impl UnifiClient {
         self.ensure_authenticated().await?;
 
         let url =
-            self.config.controller_url.join(endpoint).map_err(|e| UnifiError::UrlParseError(e))?;
+            self.config.controller_url.join(endpoint).map_err(|e| UniFiError::UrlParseError(e))?;
 
         let mut request = self.http_client.request(method, url);
 
@@ -513,11 +513,11 @@ impl UnifiClient {
         let response = request.send().await?;
 
         if response.status() == StatusCode::UNAUTHORIZED {
-            return Err(UnifiError::NotAuthenticated);
+            return Err(UniFiError::NotAuthenticated);
         }
 
         if !response.status().is_success() {
-            return Err(UnifiError::ApiError(format!(
+            return Err(UniFiError::ApiError(format!(
                 "API request failed with status code: {}",
                 response.status()
             )));
@@ -526,14 +526,14 @@ impl UnifiClient {
         let api_response: ApiResponse<R> = response.json().await?;
 
         if api_response.meta.rc != "ok" {
-            return Err(UnifiError::ApiError(
+            return Err(UniFiError::ApiError(
                 api_response.meta.msg.unwrap_or_else(|| "Unknown API error".into()),
             ));
         }
 
         match api_response.data {
             Some(data) => Ok(data),
-            None => Err(UnifiError::ApiError("No data returned from API".into())),
+            None => Err(UniFiError::ApiError("No data returned from API".into())),
         }
     }
 
@@ -542,14 +542,14 @@ impl UnifiClient {
     /// # Examples
     ///
     /// ```no_run
-    /// # use unifi_client::{ClientConfig, UnifiClient};
+    /// # use unifi_client::{ClientConfig, UniFiClient};
     /// # let config = ClientConfig::builder()
     /// #    .controller_url("https://unifi.example.com")
     /// #    .username("admin")
     /// #    .site("my-site")
     /// #    .build()
     /// #    .unwrap();
-    /// let client = UnifiClient::new(config);
+    /// let client = UniFiClient::new(config);
     /// assert_eq!(client.site(), "my-site");
     /// ```
     pub fn site(&self) -> &str {
@@ -561,9 +561,9 @@ impl UnifiClient {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example() -> Result<(), unifi_client::UnifiError> {
-    /// # use unifi_client::{ClientConfig, UnifiClient, GuestConfig};
-    /// # let mut client = UnifiClient::new(ClientConfig::builder().controller_url("https://example.com").username("admin").build()?);
+    /// # async fn example() -> Result<(), unifi_client::UniFiError> {
+    /// # use unifi_client::{ClientConfig, UniFiClient, GuestConfig};
+    /// # let mut client = UniFiClient::new(ClientConfig::builder().controller_url("https://example.com").username("admin").build()?);
     /// # client.login(None).await?;
     /// let guests_api = client.guests();
     ///
@@ -585,9 +585,9 @@ impl UnifiClient {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example() -> Result<(), unifi_client::UnifiError> {
-    /// # use unifi_client::{ClientConfig, UnifiClient};
-    /// # let mut client = UnifiClient::new(ClientConfig::builder().controller_url("https://example.com").username("admin").build()?);
+    /// # async fn example() -> Result<(), unifi_client::UniFiError> {
+    /// # use unifi_client::{ClientConfig, UniFiClient};
+    /// # let mut client = UniFiClient::new(ClientConfig::builder().controller_url("https://example.com").username("admin").build()?);
     /// # client.login(None).await?;
     /// let sites_api = client.sites();
     ///
@@ -605,9 +605,9 @@ impl UnifiClient {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example() -> Result<(), unifi_client::UnifiError> {
-    /// # use unifi_client::{ClientConfig, UnifiClient, VoucherConfig};
-    /// # let mut client = UnifiClient::new(ClientConfig::builder().controller_url("https://example.com").username("admin").build()?);
+    /// # async fn example() -> Result<(), unifi_client::UniFiError> {
+    /// # use unifi_client::{ClientConfig, UniFiClient, VoucherConfig};
+    /// # let mut client = UniFiClient::new(ClientConfig::builder().controller_url("https://example.com").username("admin").build()?);
     /// # client.login(None).await?;
     /// let vouchers_api = client.vouchers();
     ///
@@ -625,10 +625,10 @@ impl UnifiClient {
     }
 }
 
-// Implement Clone for UnifiClient
-impl Clone for UnifiClient {
+// Implement Clone for UniFiClient
+impl Clone for UniFiClient {
     fn clone(&self) -> Self {
-        UnifiClient {
+        UniFiClient {
             config: self.config.clone(),
             http_client: self.http_client.clone(),
             auth_state: self.auth_state.clone(),

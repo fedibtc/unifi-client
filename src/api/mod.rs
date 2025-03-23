@@ -10,5 +10,5 @@ pub mod voucher;
 #[allow(dead_code)]
 pub(crate) trait ApiEndpoint {
     /// Get the client associated with this endpoint.
-    fn client(&self) -> &crate::UnifiClient;
+    fn client(&self) -> &crate::UniFiClient;
 }

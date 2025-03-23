@@ -4,7 +4,7 @@ use wiremock::matchers::{method, path, body_json, header};
 
 mod common;
 use common::setup_test_client;
-use unifi_client::{UnifiError, VoucherConfig, VoucherStatus};
+use unifi_client::{UniFiError, VoucherConfig, VoucherStatus};
 
 #[tokio::test]
 async fn test_list_vouchers() {
@@ -230,7 +230,7 @@ async fn test_api_error() {
     // Verify error
     assert!(result.is_err());
     match result {
-        Err(UnifiError::ApiError(msg)) => {
+        Err(UniFiError::ApiError(msg)) => {
             assert_eq!(msg, "Invalid site");
         },
         _ => panic!("Expected ApiError"),

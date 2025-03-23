@@ -1,16 +1,16 @@
 use serde_json::Value;
-use unifi_client::{UnifiClient, UnifiResult};
+use unifi_client::{UniFiClient, UniFiResult};
 
 pub struct SiteValidator {
-    client: UnifiClient,
+    client: UniFiClient,
 }
 
 impl SiteValidator {
-    pub fn new(client: UnifiClient) -> Self {
+    pub fn new(client: UniFiClient) -> Self {
         Self { client }
     }
 
-    async fn validate_site_info(&self) -> UnifiResult<()> {
+    async fn validate_site_info(&self) -> UniFiResult<()> {
         let mut client = self.client.clone();
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/stat/sysinfo", site);
@@ -29,7 +29,7 @@ impl SiteValidator {
         Ok(())
     }
 
-    pub async fn run_all_validations(&self) -> UnifiResult<()> {
+    pub async fn run_all_validations(&self) -> UniFiResult<()> {
         println!("Running site validator...");
         self.validate_site_info().await?;
         Ok(())

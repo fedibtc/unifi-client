@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 
-use unifi_client::{ClientConfig, UnifiClient, UnifiResult};
+use unifi_client::{ClientConfig, UniFiClient, UniFiResult};
 
 mod guest;
 mod site;
@@ -36,7 +36,7 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() -> UnifiResult<()> {
+async fn main() -> UniFiResult<()> {
     let cli = Cli::parse();
 
     let config = ClientConfig::builder()
@@ -47,7 +47,7 @@ async fn main() -> UnifiResult<()> {
         .verify_ssl(false)
         .build()?;
 
-    let mut client = UnifiClient::new(config);
+    let mut client = UniFiClient::new(config);
     
     // Login first
     client.login(None).await?;

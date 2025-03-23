@@ -1,5 +1,5 @@
 use serde_json::json;
-use unifi_client::{UnifiClient, ClientConfig, UnifiError};
+use unifi_client::{UniFiClient, ClientConfig, UniFiError};
 use wiremock::{MockServer, Mock, ResponseTemplate};
 use wiremock::matchers::{method, path, body_json};
 
@@ -35,7 +35,7 @@ async fn test_successful_login() {
         .unwrap();
     
     // Create client
-    let mut client = UnifiClient::new(config);
+    let mut client = UniFiClient::new(config);
     
     // Test login
     let result = client.login(None).await;
@@ -80,7 +80,7 @@ async fn test_failed_login_invalid_credentials() {
         .unwrap();
     
     // Create client
-    let mut client = UnifiClient::new(config);
+    let mut client = UniFiClient::new(config);
     
     // Test login
     let result = client.login(None).await;
@@ -88,7 +88,7 @@ async fn test_failed_login_invalid_credentials() {
     // Verify failed login
     assert!(result.is_err());
     match result {
-        Err(UnifiError::AuthenticationError(msg)) => {
+        Err(UniFiError::AuthenticationError(msg)) => {
             assert_eq!(msg, "Invalid username or password");
         },
         _ => panic!("Expected AuthenticationError"),
@@ -118,7 +118,7 @@ async fn test_login_server_error() {
         .unwrap();
     
     // Create client
-    let mut client = UnifiClient::new(config);
+    let mut client = UniFiClient::new(config);
     
     // Test login
     let result = client.login(None).await;
@@ -126,7 +126,7 @@ async fn test_login_server_error() {
     // Verify error
     assert!(result.is_err());
     match result {
-        Err(UnifiError::AuthenticationError(msg)) => {
+        Err(UniFiError::AuthenticationError(msg)) => {
             assert!(msg.contains("500"));
         },
         _ => panic!("Expected AuthenticationError"),
@@ -162,7 +162,7 @@ async fn test_login_no_cookies() {
         .unwrap();
     
     // Create client
-    let mut client = UnifiClient::new(config);
+    let mut client = UniFiClient::new(config);
     
     // Test login
     let result = client.login(None).await;
@@ -170,7 +170,7 @@ async fn test_login_no_cookies() {
     // Verify error
     assert!(result.is_err());
     match result {
-        Err(UnifiError::AuthenticationError(msg)) => {
+        Err(UniFiError::AuthenticationError(msg)) => {
             assert_eq!(msg, "No cookies received from server");
         },
         _ => panic!("Expected AuthenticationError"),
@@ -209,7 +209,7 @@ async fn test_explicit_password() {
         .unwrap();
     
     // Create client
-    let mut client = UnifiClient::new(config);
+    let mut client = UniFiClient::new(config);
     
     // Test login with explicit password
     let result = client.login(Some("explicit-password".to_string())).await;
@@ -230,7 +230,7 @@ async fn test_config_error() {
     
     assert!(config_result.is_err());
     match config_result {
-        Err(UnifiError::ConfigurationError(msg)) => {
+        Err(UniFiError::ConfigurationError(msg)) => {
             assert!(msg.contains("Invalid controller URL"));
         },
         _ => panic!("Expected ConfigurationError"),
@@ -246,7 +246,7 @@ async fn test_config_error() {
     
     assert!(config_result.is_err());
     match config_result {
-        Err(UnifiError::ConfigurationError(msg)) => {
+        Err(UniFiError::ConfigurationError(msg)) => {
             assert_eq!(msg, "Username is required");
         },
         _ => panic!("Expected ConfigurationError"),

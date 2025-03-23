@@ -3,7 +3,7 @@ use std::env;
 use std::error::Error;
 use std::io::{self, Write};
 
-use unifi_client::{ClientConfig, UnifiClient, VoucherConfig};
+use unifi_client::{ClientConfig, UniFiClient, VoucherConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -38,7 +38,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .build()?;
 
     // Create the UniFi client and authenticate
-    let mut client = UnifiClient::new(config);
+    let mut client = UniFiClient::new(config);
     client.login(password).await?;
     println!("✅ Authentication successful!");
 

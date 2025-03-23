@@ -2,7 +2,7 @@ use reqwest::Method;
 
 use super::ApiEndpoint;
 use crate::{
-    CreateVoucherRequest, CreateVoucherResponse, UnifiClient, UnifiError, UnifiResult, Voucher,
+    CreateVoucherRequest, CreateVoucherResponse, UniFiClient, UniFiError, UniFiResult, Voucher,
     VoucherConfig,
 };
 
@@ -11,11 +11,11 @@ use crate::{
 /// This API allows creating, listing, and deleting vouchers used for guest
 /// access.
 pub struct VoucherApi<'a> {
-    client: &'a UnifiClient,
+    client: &'a UniFiClient,
 }
 
 impl<'a> ApiEndpoint for VoucherApi<'a> {
-    fn client(&self) -> &UnifiClient {
+    fn client(&self) -> &UniFiClient {
         self.client
     }
 }
@@ -29,7 +29,7 @@ impl<'a> VoucherApi<'a> {
     ///
     /// * `client` - Reference to the UniFi client that will be used for API
     ///   requests
-    pub(crate) fn new(client: &'a UnifiClient) -> Self {
+    pub(crate) fn new(client: &'a UniFiClient) -> Self {
         Self { client }
     }
 
@@ -52,7 +52,7 @@ impl<'a> VoucherApi<'a> {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// # async fn example(client: &unifi_client::UniFiClient) -> unifi_client::UniFiResult<()> {
     /// use unifi_client::VoucherConfig;
     ///
     /// let config = VoucherConfig::builder()
@@ -66,7 +66,7 @@ impl<'a> VoucherApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn create(&self, config: VoucherConfig) -> UnifiResult<CreateVoucherResponse> {
+    pub async fn create(&self, config: VoucherConfig) -> UniFiResult<CreateVoucherResponse> {
         let mut client = self.client.clone();
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/cmd/hotspot", site);
@@ -78,7 +78,7 @@ impl<'a> VoucherApi<'a> {
         response
             .first()
             .cloned()
-            .ok_or_else(|| UnifiError::ApiError("No create voucher response received".to_string()))
+            .ok_or_else(|| UniFiError::ApiError("No create voucher response received".to_string()))
     }
 
     /// Deletes a specific voucher by its ID.
@@ -95,13 +95,13 @@ impl<'a> VoucherApi<'a> {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// # async fn example(client: &unifi_client::UniFiClient) -> unifi_client::UniFiResult<()> {
     /// let voucher_id = "5f8d7c66e4b0abcdef123456";
     /// client.vouchers().delete(voucher_id).await?;
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn delete(&self, voucher_id: &str) -> UnifiResult<()> {
+    pub async fn delete(&self, voucher_id: &str) -> UniFiResult<()> {
         let mut client = self.client.clone();
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/cmd/hotspot", site);
@@ -130,13 +130,13 @@ impl<'a> VoucherApi<'a> {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// # async fn example(client: &unifi_client::UniFiClient) -> unifi_client::UniFiResult<()> {
     /// // Delete all vouchers in the system
     /// client.vouchers().delete_all().await?;
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn delete_all(&self) -> UnifiResult<()> {
+    pub async fn delete_all(&self) -> UniFiResult<()> {
         // Get all vouchers
         let vouchers = self.list().await?;
 
@@ -163,7 +163,7 @@ impl<'a> VoucherApi<'a> {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// # async fn example(client: &unifi_client::UniFiClient) -> unifi_client::UniFiResult<()> {
     /// // Get vouchers created at a specific time
     /// let timestamp = 1620000000;
     /// let vouchers = client.vouchers().get_by_create_time(timestamp).await?;
@@ -171,7 +171,7 @@ impl<'a> VoucherApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn get_by_create_time(&self, create_time: u64) -> UnifiResult<Vec<Voucher>> {
+    pub async fn get_by_create_time(&self, create_time: u64) -> UniFiResult<Vec<Voucher>> {
         let mut client = self.client.clone();
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/stat/voucher", site);
@@ -195,7 +195,7 @@ impl<'a> VoucherApi<'a> {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// # async fn example(client: &unifi_client::UniFiClient) -> unifi_client::UniFiResult<()> {
     /// let vouchers = client.vouchers().list().await?;
     /// for voucher in vouchers {
     ///     println!("Voucher code: {}, duration: {}", voucher.code, voucher.duration);
@@ -203,7 +203,7 @@ impl<'a> VoucherApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn list(&self) -> UnifiResult<Vec<Voucher>> {
+    pub async fn list(&self) -> UniFiResult<Vec<Voucher>> {
         let mut client = self.client.clone();
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/stat/voucher", site);

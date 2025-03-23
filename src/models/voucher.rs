@@ -2,7 +2,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::UnifiError;
+use crate::UniFiError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// A voucher is a code that allows a guest to connect to the network for a
@@ -128,9 +128,9 @@ impl VoucherConfigBuilder {
     }
 
     /// Build the voucher configuration.
-    pub fn build(self) -> Result<VoucherConfig, UnifiError> {
+    pub fn build(self) -> Result<VoucherConfig, UniFiError> {
         if self.config.count == 0 {
-            return Err(UnifiError::ApiError("Voucher count must be greater than 0".to_string()));
+            return Err(UniFiError::ApiError("Voucher count must be greater than 0".to_string()));
         }
         Ok(self.config)
     }
@@ -225,11 +225,11 @@ pub struct CreateVoucherRequest {
 }
 
 impl TryFrom<VoucherConfig> for CreateVoucherRequest {
-    type Error = UnifiError;
+    type Error = UniFiError;
 
     fn try_from(config: VoucherConfig) -> Result<Self, Self::Error> {
         if config.count == 0 {
-            return Err(UnifiError::ApiError("Voucher count must be greater than 0".to_string()));
+            return Err(UniFiError::ApiError("Voucher count must be greater than 0".to_string()));
         }
 
         Ok(Self {

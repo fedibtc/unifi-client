@@ -1,18 +1,18 @@
 use reqwest::Method;
 
 use super::ApiEndpoint;
-use crate::{Site, SiteStats, UnifiClient, UnifiError, UnifiResult};
+use crate::{Site, SiteStats, UniFiClient, UniFiError, UniFiResult};
 
 /// Provides methods for managing UniFi Controller sites.
 ///
 /// This API allows creating, listing, updating, and deleting sites within the
 /// UniFi system, as well as retrieving site statistics.
 pub struct SiteApi<'a> {
-    client: &'a UnifiClient,
+    client: &'a UniFiClient,
 }
 
 impl<'a> ApiEndpoint for SiteApi<'a> {
-    fn client(&self) -> &UnifiClient {
+    fn client(&self) -> &UniFiClient {
         self.client
     }
 }
@@ -26,7 +26,7 @@ impl<'a> SiteApi<'a> {
     ///
     /// * `client` - Reference to the UniFi client that will be used for API
     ///   requests
-    pub(crate) fn new(client: &'a UnifiClient) -> Self {
+    pub(crate) fn new(client: &'a UniFiClient) -> Self {
         Self { client }
     }
 
@@ -40,7 +40,7 @@ impl<'a> SiteApi<'a> {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// # async fn example(client: &unifi_client::UniFiClient) -> unifi_client::UniFiResult<()> {
     /// let sites = client.sites().list().await?;
     /// for site in sites {
     ///     println!("Site: {}", site);
@@ -48,7 +48,7 @@ impl<'a> SiteApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn list(&self) -> UnifiResult<Vec<Site>> {
+    pub async fn list(&self) -> UniFiResult<Vec<Site>> {
         let mut client = self.client.clone();
 
         let endpoint = "/api/self/sites";
@@ -66,25 +66,25 @@ impl<'a> SiteApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not
+    /// Returns `UniFiError::SiteNotFound` if the site does not exist or is not
     /// accessible.
     ///
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// # async fn example(client: &unifi_client::UniFiClient) -> unifi_client::UniFiResult<()> {
     /// let site = client.sites().get("5f8d7c66e4b0abcdef123456").await?;
     /// println!("Retrieved site: {}", site);
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn get(&self, site_id: &str) -> UnifiResult<Site> {
+    pub async fn get(&self, site_id: &str) -> UniFiResult<Site> {
         let sites = self.list().await?;
 
         sites
             .into_iter()
             .find(|site| site.id == site_id)
-            .ok_or_else(|| UnifiError::SiteNotFound(site_id.to_string()))
+            .ok_or_else(|| UniFiError::SiteNotFound(site_id.to_string()))
     }
 
     /// Retrieves a specific site by its name or description.
@@ -98,26 +98,26 @@ impl<'a> SiteApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns `UnifiError::SiteNotFound` if no site matches the provided name
+    /// Returns `UniFiError::SiteNotFound` if no site matches the provided name
     /// or description.
     ///
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// # async fn example(client: &unifi_client::UniFiClient) -> unifi_client::UniFiResult<()> {
     /// // Find site either by name or description
     /// let site = client.sites().get_by_name("Main Office").await?;
     /// println!("Retrieved site: {}", site);
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn get_by_name(&self, name: &str) -> UnifiResult<Site> {
+    pub async fn get_by_name(&self, name: &str) -> UniFiResult<Site> {
         let sites = self.list().await?;
 
         sites
             .into_iter()
             .find(|site| site.name == name || site.desc == name)
-            .ok_or_else(|| UnifiError::SiteNotFound(name.to_string()))
+            .ok_or_else(|| UniFiError::SiteNotFound(name.to_string()))
     }
 
     /// Creates a new site on the UniFi controller.
@@ -135,13 +135,13 @@ impl<'a> SiteApi<'a> {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// # async fn example(client: &unifi_client::UniFiClient) -> unifi_client::UniFiResult<()> {
     /// let new_site = client.sites().create("branch-office", "Branch Office").await?;
     /// println!("Created new site: {}", new_site);
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn create(&self, name: &str, description: &str) -> UnifiResult<Site> {
+    pub async fn create(&self, name: &str, description: &str) -> UniFiResult<Site> {
         let mut client = self.client.clone();
 
         let create_data = serde_json::json!({
@@ -168,20 +168,20 @@ impl<'a> SiteApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not
+    /// Returns `UniFiError::SiteNotFound` if the site does not exist or is not
     /// accessible.
     ///
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// # async fn example(client: &unifi_client::UniFiClient) -> unifi_client::UniFiResult<()> {
     /// let updated_site =
     ///     client.sites().update("5f8d7c66e4b0abcdef123456", "Updated Description").await?;
     /// println!("Updated site: {}", updated_site);
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn update(&self, site_id: &str, description: &str) -> UnifiResult<Site> {
+    pub async fn update(&self, site_id: &str, description: &str) -> UniFiResult<Site> {
         let mut client = self.client.clone();
 
         // First, get the current site to ensure it exists
@@ -212,19 +212,19 @@ impl<'a> SiteApi<'a> {
     ///
     /// # Errors
     ///
-    /// Returns `UnifiError::SiteNotFound` if the site does not exist or is not
+    /// Returns `UniFiError::SiteNotFound` if the site does not exist or is not
     /// accessible.
     ///
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// # async fn example(client: &unifi_client::UniFiClient) -> unifi_client::UniFiResult<()> {
     /// client.sites().delete("5f8d7c66e4b0abcdef123456").await?;
     /// println!("Site deleted successfully");
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn delete(&self, site_id: &str) -> UnifiResult<()> {
+    pub async fn delete(&self, site_id: &str) -> UniFiResult<()> {
         let mut client = self.client.clone();
 
         // First, get the current site to ensure it exists
@@ -255,7 +255,7 @@ impl<'a> SiteApi<'a> {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// # async fn example(client: &unifi_client::UniFiClient) -> unifi_client::UniFiResult<()> {
     /// let sites = client.sites().list().await?;
     /// let first_site = &sites[0];
     ///
@@ -266,7 +266,7 @@ impl<'a> SiteApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn set_as_default(&self, site: &Site) -> UnifiClient {
+    pub fn set_as_default(&self, site: &Site) -> UniFiClient {
         let mut new_client = self.client.clone();
         new_client.config.site = site.name.clone();
         new_client
@@ -277,13 +277,13 @@ impl<'a> SiteApi<'a> {
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
+    /// # async fn example(client: &unifi_client::UniFiClient) -> unifi_client::UniFiResult<()> {
     /// let stats = client.sites().stats().await?;
     /// println!("Site has {} access points and {} clients", stats.num_ap, stats.num_user);
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn stats(&self) -> UnifiResult<SiteStats> {
+    pub async fn stats(&self) -> UniFiResult<SiteStats> {
         let mut client = self.client.clone();
 
         let site = self.client.site();
@@ -294,6 +294,6 @@ impl<'a> SiteApi<'a> {
         stats
             .into_iter()
             .next()
-            .ok_or_else(|| UnifiError::ApiError("No site statistics available".to_string()))
+            .ok_or_else(|| UniFiError::ApiError("No site statistics available".to_string()))
     }
 }

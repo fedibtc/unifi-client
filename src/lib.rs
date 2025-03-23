@@ -15,7 +15,7 @@
 //! ## Example
 //!
 //! ```rust,no_run
-//! use unifi_client::{ClientConfig, UnifiClient, VoucherConfig};
+//! use unifi_client::{ClientConfig, UniFiClient, VoucherConfig};
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,7 +27,7 @@
 //!         .verify_ssl(false)
 //!         .build()?;
 //!
-//!     let mut client = UnifiClient::new(config);
+//!     let mut client = UniFiClient::new(config);
 //!
 //!     // Login - this will prompt for password if not provided
 //!     client.login(None).await?;
@@ -57,8 +57,8 @@ mod models;
 pub use api::guest::GuestApi;
 pub use api::site::SiteApi;
 pub use api::voucher::VoucherApi;
-pub use client::{ClientConfig, UnifiClient};
-pub use error::{UnifiError, UnifiResult};
+pub use client::{ClientConfig, UniFiClient};
+pub use error::{UniFiError, UniFiResult};
 pub use models::api_response::{ApiMeta, ApiResponse, EmptyResponse};
 pub use models::auth::LoginRequest;
 pub use models::guest::{AuthorizeGuestRequest, GuestConfig, GuestEntry, UnauthorizeGuestRequest};

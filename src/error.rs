@@ -3,7 +3,7 @@ pub use url::ParseError as UrlParseError;
 
 /// Error types for the UniFi API client.
 #[derive(Error, Debug)]
-pub enum UnifiError {
+pub enum UniFiError {
     /// Authentication failed with the UniFi controller.
     #[error("Authentication failed: {0}")]
     AuthenticationError(String),
@@ -38,4 +38,4 @@ pub enum UnifiError {
 }
 
 /// Result type for UniFi API operations.
-pub type UnifiResult<T> = Result<T, UnifiError>;
+pub type UniFiResult<T> = Result<T, UniFiError>;

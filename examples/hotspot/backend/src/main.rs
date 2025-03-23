@@ -15,7 +15,7 @@ use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use unifi_client::{ClientConfig, GuestConfig, GuestEntry, UnifiClient};
+use unifi_client::{ClientConfig, GuestConfig, GuestEntry, UniFiClient};
 use validator::{Validate, ValidateArgs, ValidationError};
 
 // Context struct for validation limits
@@ -166,7 +166,7 @@ impl fmt::Debug for AppConfig {
 #[derive(Clone)]
 struct AppState {
     config: AppConfig,
-    unifi_client: std::sync::Arc<Mutex<UnifiClient>>,
+    unifi_client: std::sync::Arc<Mutex<UniFiClient>>,
 }
 
 async fn authorize_guest(
@@ -287,7 +287,7 @@ async fn main() {
         "Initializing UniFi client with configuration: {:?}",
         unifi_client_config
     );
-    let mut unifi_client = UnifiClient::new(unifi_client_config);
+    let mut unifi_client = UniFiClient::new(unifi_client_config);
 
     // Login to the UniFi controller.
     unifi_client

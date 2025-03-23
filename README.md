@@ -33,7 +33,7 @@ unifi-client = "0.1.0"
 ## Quick Start
 
 ```rust
-use unifi_client::{UnifiClient, ClientConfig};
+use unifi_client::{UniFiClient, ClientConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .verify_ssl(false)
         .build()?;
     
-    let mut client = UnifiClient::new(config);
+    let mut client = UniFiClient::new(config);
     
     // Login - this will prompt for password if not provided
     client.login(None).await?;
@@ -112,7 +112,7 @@ The library uses a custom error type for all operations:
 ```rust
 match client.login(None).await {
     Ok(_) => println!("Login successful!"),
-    Err(UnifiError::AuthenticationError(msg)) => {
+    Err(UniFiError::AuthenticationError(msg)) => {
         eprintln!("Authentication failed: {}", msg);
     },
     Err(err) => eprintln!("Error: {}", err),

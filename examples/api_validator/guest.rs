@@ -1,18 +1,18 @@
 use serde_json::Value;
 
 use crate::utils::random_mac;
-use unifi_client::{UnifiClient, UnifiResult};
+use unifi_client::{UniFiClient, UniFiResult};
 
 pub struct GuestValidator {
-    client: UnifiClient,
+    client: UniFiClient,
 }
 
 impl GuestValidator {
-    pub fn new(client: UnifiClient) -> Self {
+    pub fn new(client: UniFiClient) -> Self {
         Self { client }
     }
 
-    async fn validate_authorize_simple_duration(&self) -> UnifiResult<()> {
+    async fn validate_authorize_simple_duration(&self) -> UniFiResult<()> {
         let mut client = self.client.clone();
 
         // Test MAC address and duration
@@ -92,7 +92,7 @@ impl GuestValidator {
         Ok(())
     }
 
-    async fn validate_list_guests(&self) -> UnifiResult<()> {
+    async fn validate_list_guests(&self) -> UniFiResult<()> {
         let mut client = self.client.clone();
         let site = self.client.site();
 
@@ -167,7 +167,7 @@ impl GuestValidator {
         Ok(())
     }
 
-    async fn validate_unauthorize(&self) -> UnifiResult<()> {
+    async fn validate_unauthorize(&self) -> UniFiResult<()> {
         let mut client = self.client.clone();
 
         // First authorize a guest so we can then unauthorize them
@@ -211,7 +211,7 @@ impl GuestValidator {
         Ok(())
     }
 
-    async fn validate_minutes_parameter_range(&self) -> UnifiResult<()> {
+    async fn validate_minutes_parameter_range(&self) -> UniFiResult<()> {
         let mut client = self.client.clone();
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
@@ -285,7 +285,7 @@ impl GuestValidator {
         Ok(())
     }
 
-    async fn validate_mac_address_formats(&self) -> UnifiResult<()> {
+    async fn validate_mac_address_formats(&self) -> UniFiResult<()> {
         let mut client = self.client.clone();
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
@@ -399,7 +399,7 @@ impl GuestValidator {
         Ok(())
     }
 
-    pub async fn run_all_validations(&self) -> UnifiResult<()> {
+    pub async fn run_all_validations(&self) -> UniFiResult<()> {
         println!("Running guest validator...");
         self.validate_authorize_simple_duration().await?;
         self.validate_list_guests().await?;

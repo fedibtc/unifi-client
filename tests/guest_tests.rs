@@ -4,7 +4,7 @@ use wiremock::matchers::{method, path, body_json, header};
 
 mod common;
 use common::setup_test_client;
-use unifi_client::{GuestConfig, GuestEntry, UnifiError};
+use unifi_client::{GuestConfig, GuestEntry, UniFiError};
 
 #[tokio::test]
 async fn test_authorize_guest() {
@@ -254,7 +254,7 @@ async fn test_guest_api_error() {
     
     assert!(result.is_err());
     match result {
-        Err(UnifiError::ApiError(msg)) => {
+        Err(UniFiError::ApiError(msg)) => {
             assert_eq!(msg, "Invalid guest parameters");
         },
         _ => panic!("Expected ApiError"),

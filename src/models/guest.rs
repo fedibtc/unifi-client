@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::UnifiError;
+use crate::UniFiError;
 
 /// Request to authorize a guest for network access.
 ///
@@ -29,7 +29,7 @@ pub struct AuthorizeGuestRequest {
 }
 
 impl TryFrom<GuestConfig> for AuthorizeGuestRequest {
-    type Error = UnifiError;
+    type Error = UniFiError;
 
     fn try_from(config: GuestConfig) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -118,9 +118,9 @@ impl GuestConfigBuilder {
     }
 
     /// Build the guest configuration.
-    pub fn build(self) -> Result<GuestConfig, UnifiError> {
+    pub fn build(self) -> Result<GuestConfig, UniFiError> {
         if self.config.mac.is_empty() {
-            return Err(UnifiError::ApiError("MAC address is required".to_string()));
+            return Err(UniFiError::ApiError("MAC address is required".to_string()));
         }
         Ok(self.config)
     }
