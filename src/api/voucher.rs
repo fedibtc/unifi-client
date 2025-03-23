@@ -72,11 +72,7 @@ impl<'a> VoucherApi<'a> {
         let endpoint = format!("/api/s/{}/cmd/hotspot", site);
 
         let response: Vec<CreateVoucherResponse> = client
-            .request(
-                Method::POST,
-                &endpoint,
-                Some(CreateVoucherRequest::try_from(config)?),
-            )
+            .request(Method::POST, &endpoint, Some(CreateVoucherRequest::try_from(config)?))
             .await?;
 
         response
@@ -115,9 +111,8 @@ impl<'a> VoucherApi<'a> {
             "_id": voucher_id,
         });
 
-        let _: serde_json::Value = client
-            .request(Method::POST, &endpoint, Some(delete_data))
-            .await?;
+        let _: serde_json::Value =
+            client.request(Method::POST, &endpoint, Some(delete_data)).await?;
 
         Ok(())
     }
@@ -185,9 +180,7 @@ impl<'a> VoucherApi<'a> {
             "create_time": create_time
         });
 
-        let vouchers: Vec<Voucher> = client
-            .request(Method::GET, &endpoint, Some(payload))
-            .await?;
+        let vouchers: Vec<Voucher> = client.request(Method::GET, &endpoint, Some(payload)).await?;
 
         Ok(vouchers)
     }
@@ -205,10 +198,7 @@ impl<'a> VoucherApi<'a> {
     /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
     /// let vouchers = client.vouchers().list().await?;
     /// for voucher in vouchers {
-    ///     println!(
-    ///         "Voucher code: {}, duration: {}",
-    ///         voucher.code, voucher.duration
-    ///     );
+    ///     println!("Voucher code: {}, duration: {}", voucher.code, voucher.duration);
     /// }
     /// # Ok(())
     /// # }

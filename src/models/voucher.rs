@@ -130,9 +130,7 @@ impl VoucherConfigBuilder {
     /// Build the voucher configuration.
     pub fn build(self) -> Result<VoucherConfig, UnifiError> {
         if self.config.count == 0 {
-            return Err(UnifiError::ApiError(
-                "Voucher count must be greater than 0".to_string(),
-            ));
+            return Err(UnifiError::ApiError("Voucher count must be greater than 0".to_string()));
         }
         Ok(self.config)
     }
@@ -231,9 +229,7 @@ impl TryFrom<VoucherConfig> for CreateVoucherRequest {
 
     fn try_from(config: VoucherConfig) -> Result<Self, Self::Error> {
         if config.count == 0 {
-            return Err(UnifiError::ApiError(
-                "Voucher count must be greater than 0".to_string(),
-            ));
+            return Err(UnifiError::ApiError("Voucher count must be greater than 0".to_string()));
         }
 
         Ok(Self {

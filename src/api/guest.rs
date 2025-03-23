@@ -72,11 +72,7 @@ impl<'a> GuestApi<'a> {
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
 
         let response: Vec<GuestEntry> = client
-            .request(
-                Method::POST,
-                &endpoint,
-                Some(AuthorizeGuestRequest::try_from(config)?),
-            )
+            .request(Method::POST, &endpoint, Some(AuthorizeGuestRequest::try_from(config)?))
             .await?;
 
         response
@@ -148,9 +144,8 @@ impl<'a> GuestApi<'a> {
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
         let request = UnauthorizeGuestRequest::new(mac);
 
-        let _response: EmptyResponse = client
-            .request(Method::POST, &endpoint, Some(request))
-            .await?;
+        let _response: EmptyResponse =
+            client.request(Method::POST, &endpoint, Some(request)).await?;
 
         Ok(())
     }

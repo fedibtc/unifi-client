@@ -136,10 +136,7 @@ impl<'a> SiteApi<'a> {
     ///
     /// ```no_run
     /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
-    /// let new_site = client
-    ///     .sites()
-    ///     .create("branch-office", "Branch Office")
-    ///     .await?;
+    /// let new_site = client.sites().create("branch-office", "Branch Office").await?;
     /// println!("Created new site: {}", new_site);
     /// # Ok(())
     /// # }
@@ -155,9 +152,8 @@ impl<'a> SiteApi<'a> {
 
         let endpoint = "/api/s/default/cmd/sitemgr";
 
-        let _: serde_json::Value = client
-            .request(Method::POST, endpoint, Some(create_data))
-            .await?;
+        let _: serde_json::Value =
+            client.request(Method::POST, endpoint, Some(create_data)).await?;
 
         // The API doesn't return the created site, so we need to fetch it
         self.get_by_name(name).await
@@ -179,10 +175,8 @@ impl<'a> SiteApi<'a> {
     ///
     /// ```no_run
     /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
-    /// let updated_site = client
-    ///     .sites()
-    ///     .update("5f8d7c66e4b0abcdef123456", "Updated Description")
-    ///     .await?;
+    /// let updated_site =
+    ///     client.sites().update("5f8d7c66e4b0abcdef123456", "Updated Description").await?;
     /// println!("Updated site: {}", updated_site);
     /// # Ok(())
     /// # }
@@ -201,9 +195,8 @@ impl<'a> SiteApi<'a> {
 
         let endpoint = "/api/s/default/cmd/sitemgr";
 
-        let _: serde_json::Value = client
-            .request(Method::POST, endpoint, Some(update_data))
-            .await?;
+        let _: serde_json::Value =
+            client.request(Method::POST, endpoint, Some(update_data)).await?;
 
         // The API doesn't return the updated site, so we need to fetch it
         self.get(site_id).await
@@ -244,9 +237,8 @@ impl<'a> SiteApi<'a> {
 
         let endpoint = "/api/s/default/cmd/sitemgr";
 
-        let _: serde_json::Value = client
-            .request(Method::POST, endpoint, Some(delete_data))
-            .await?;
+        let _: serde_json::Value =
+            client.request(Method::POST, endpoint, Some(delete_data)).await?;
 
         Ok(())
     }
@@ -287,10 +279,7 @@ impl<'a> SiteApi<'a> {
     /// ```no_run
     /// # async fn example(client: &unifi_client::UnifiClient) -> unifi_client::UnifiResult<()> {
     /// let stats = client.sites().stats().await?;
-    /// println!(
-    ///     "Site has {} access points and {} clients",
-    ///     stats.num_ap, stats.num_user
-    /// );
+    /// println!("Site has {} access points and {} clients", stats.num_ap, stats.num_user);
     /// # Ok(())
     /// # }
     /// ```

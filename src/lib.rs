@@ -33,25 +33,16 @@
 //!     client.login(None).await?;
 //!
 //!     // Create a voucher configuration
-//!     let voucher_config = VoucherConfig::builder()
-//!         .count(5)
-//!         .duration(1440)
-//!         .note("Guest access")
-//!         .build()?;
+//!     let voucher_config =
+//!         VoucherConfig::builder().count(5).duration(1440).note("Guest access").build()?;
 //!
 //!     // Create the vouchers
 //!     let create_response = client.vouchers().create(voucher_config).await?;
 //!
 //!     // Print the voucher codes
-//!     let vouchers = client
-//!         .vouchers()
-//!         .get_by_create_time(create_response.create_time)
-//!         .await?;
+//!     let vouchers = client.vouchers().get_by_create_time(create_response.create_time).await?;
 //!     for voucher in vouchers {
-//!         println!(
-//!             "Code: {}, Duration: {} minutes",
-//!             voucher.code, voucher.duration
-//!         );
+//!         println!("Code: {}, Duration: {} minutes", voucher.code, voucher.duration);
 //!     }
 //!
 //!     Ok(())
