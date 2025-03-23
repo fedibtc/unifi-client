@@ -475,31 +475,18 @@ impl UnifiClient {
     {
         self.ensure_authenticated().await?;
 
-        let auth_state = self.auth_state.as_ref().unwrap();
-        let url = self.config.controller_url.join(endpoint)?;
+        let url = self
+            .config
+            .controller_url
+            .join(endpoint)
+            .map_err(|e| UnifiError::UrlParseError(e))?;
 
         let mut request = self.http_client.request(
             Method::from_bytes(method.as_bytes()).unwrap_or(Method::GET),
             url,
         );
 
-        // Add cookies and CSRF token
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            COOKIE,
-            HeaderValue::from_str(&auth_state.cookies)
-                .map_err(|e| UnifiError::ApiError(format!("Invalid cookie header: {}", e)))?,
-        );
-
-        if let Some(token) = &auth_state.csrf_token {
-            headers.insert(
-                "x-csrf-token",
-                HeaderValue::from_str(token)
-                    .map_err(|e| UnifiError::ApiError(format!("Invalid CSRF token: {}", e)))?,
-            );
-        }
-
-        request = request.headers(headers);
+        request = request.headers(self.get_auth_headers()?);
 
         if let Some(data) = body {
             request = request.json(&data).header(CONTENT_TYPE, "application/json");
@@ -533,8 +520,6 @@ impl UnifiClient {
     {
         self.ensure_authenticated().await?;
 
-        let auth_state = self.auth_state.as_ref().unwrap();
-
         let url = self
             .config
             .controller_url
@@ -543,24 +528,7 @@ impl UnifiClient {
 
         let mut request = self.http_client.request(method, url);
 
-        // Add cookies
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            COOKIE,
-            HeaderValue::from_str(&auth_state.cookies)
-                .map_err(|e| UnifiError::ApiError(format!("Invalid cookie header: {}", e)))?,
-        );
-
-        // Add CSRF token if available
-        if let Some(token) = &auth_state.csrf_token {
-            headers.insert(
-                "x-csrf-token",
-                HeaderValue::from_str(token)
-                    .map_err(|e| UnifiError::ApiError(format!("Invalid CSRF token: {}", e)))?,
-            );
-        }
-
-        request = request.headers(headers);
+        request = request.headers(self.get_auth_headers()?);
 
         // Add JSON body if provided
         if let Some(data) = body {
