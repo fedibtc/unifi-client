@@ -93,11 +93,15 @@ struct GuestAuthRequest {
     )]
     access_point_mac_address: String,
 
-    #[validate(range(min = 1735689600, max = 4102444800))]
-    captive_portal_timestamp: i64,  // Unix timestamp in seconds
+    #[validate(range(
+        min = 1735689600_i64,
+        max = 4102444800_i64,
+        message = "Captive portal timestamp must be between 1735689600 (2025-01-01 00:00:00 UTC) and 4102444800 (2050-01-01 00:00:00 UTC)"
+    ))]
+    captive_portal_timestamp: i64, // Unix timestamp in seconds
 
     #[validate(length(min = 8, max = 2048))]
-    requested_url: String,  // URL client was attempting to access
+    requested_url: String, // URL client was attempting to access
 
     #[validate(length(min = 1, max = 32))]
     wifi_network: String,
