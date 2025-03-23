@@ -77,13 +77,30 @@ struct GuestAuthRequest {
             message = "MAC address must be in format 00:11:22:33:44:55 with colons and exactly two hex digits per segment"
         )
     )]
-    mac_address: String,
+    client_mac_address: String,
 
     #[validate(custom(function = validate_duration, use_context))]
     duration_minutes: Option<u32>,
 
     #[validate(custom(function = validate_data_quota, use_context))]
     data_quota_megabytes: Option<u64>,
+
+    #[validate(
+        regex(
+            path = *MAC_ADDRESS_REGEX,
+            message = "MAC address must be in format 00:11:22:33:44:55 with colons and exactly two hex digits per segment"
+        )
+    )]
+    access_point_mac_address: String,
+
+    #[validate(range(min = 1735689600, max = 4102444800))]
+    captive_portal_timestamp: i64,  // Unix timestamp in seconds
+
+    #[validate(length(min = 8, max = 2048))]
+    requested_url: String,  // URL client was attempting to access
+
+    #[validate(length(min = 1, max = 32))]
+    wifi_network: String,
 }
 
 static MAC_ADDRESS_REGEX: Lazy<Regex> =
@@ -167,7 +184,7 @@ async fn authorize_guest(
     }
 
     // Build the guest config.
-    let mut config_builder = GuestConfig::builder().mac(&payload.mac_address);
+    let mut config_builder = GuestConfig::builder().mac(&payload.client_mac_address);
     if let Some(duration) = payload.duration_minutes {
         config_builder = config_builder.duration(duration);
     }
