@@ -3,11 +3,11 @@ use serde_json::Value;
 use crate::utils::random_mac;
 use unifi_client::{UniFiClient, UniFiResult};
 
-pub struct GuestValidator {
+pub struct GuestsValidator {
     client: UniFiClient,
 }
 
-impl GuestValidator {
+impl GuestsValidator {
     pub fn new(client: UniFiClient) -> Self {
         Self { client }
     }

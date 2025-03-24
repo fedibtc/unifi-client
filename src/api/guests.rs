@@ -213,11 +213,11 @@ impl AuthorizeGuestBuilder {
         self
     }
 
-    pub async fn send(self) -> UniFiResult<models::guest::GuestEntry> {
+    pub async fn send(self) -> UniFiResult<models::guests::GuestEntry> {
         let site = self.unifi_client.site();
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
 
-        let request = models::guest::AuthorizeGuestRequest {
+        let request = models::guests::AuthorizeGuestRequest {
             cmd: "authorize-guest".to_string(),
             mac: self.client_mac_address,
             minutes: self.duration_minutes,
@@ -227,7 +227,7 @@ impl AuthorizeGuestBuilder {
             ap_mac: self.access_point_mac_address,
         };
 
-        let response: Vec<models::guest::GuestEntry> =
+        let response: Vec<models::guests::GuestEntry> =
             self.unifi_client.request(Method::POST, &endpoint, Some(request)).await?;
 
         response
@@ -255,7 +255,7 @@ impl ListGuestsBuilder {
         self
     }
 
-    pub async fn send(self) -> UniFiResult<Vec<models::guest::GuestEntry>> {
+    pub async fn send(self) -> UniFiResult<Vec<models::guests::GuestEntry>> {
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/stat/guest", site);
         let params = self.within.map(|hours| serde_json::json!({ "within": hours }));
@@ -278,7 +278,7 @@ impl UnauthorizeGuestBuilder {
     pub async fn send(self) -> UniFiResult<()> {
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
-        let request = models::guest::UnauthorizeGuestRequest::new(self.mac);
+        let request = models::guests::UnauthorizeGuestRequest::new(self.mac);
 
         self.client.request(Method::POST, &endpoint, Some(request)).await.map(|_: EmptyResponse| ())
     }

@@ -5,7 +5,7 @@ use wiremock::matchers::{method, path, body_json, header};
 mod common;
 
 use common::setup_test_client;
-use unifi_client::models::guest::GuestEntry;
+use unifi_client::models::guests::GuestEntry;
 use unifi_client::UniFiError;
 
 #[tokio::test]

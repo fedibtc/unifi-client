@@ -62,6 +62,6 @@ mod error;
 
 pub mod models;
 
-pub use self::api::guest;
+pub use self::api::guests;
 pub use self::client::{initialize, instance, UniFiClient, UniFiClientBuilder};
 pub use self::error::{UniFiError, UniFiResult};

@@ -2,14 +2,12 @@ use clap::{Parser, Subcommand};
 
 use unifi_client::{UniFiClient, UniFiResult};
 
-mod guest;
-mod site;
-// mod voucher;
+mod guests;
+mod sites;
 mod utils;
 
-use guest::GuestValidator;
-use site::SiteValidator;
-// use voucher::VoucherValidator;
+use guests::GuestsValidator;
+use sites::SitesValidator;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -30,9 +28,8 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     All,
-    Guest,
-    Site,
-    // Voucher,
+    Guests,
+    Sites,
 }
 
 #[tokio::main]
@@ -50,25 +47,19 @@ async fn main() -> UniFiResult<()> {
         .expect("Failed to build UniFiClient");
     
     match cli.command.unwrap_or(Commands::All) {
-        // Commands::Voucher => {
-        //     let mut validator = VoucherValidator::new(unifi_client);
-        //     validator.run_all_validations().await?;
-        // }
-        Commands::Site => {
-            let validator = SiteValidator::new(unifi_client);
+        Commands::Sites => {
+            let validator = SitesValidator::new(unifi_client);
             validator.run_all_validations().await?;
         }
-        Commands::Guest => {
-            let validator = GuestValidator::new(unifi_client);
+        Commands::Guests => {
+            let validator = GuestsValidator::new(unifi_client);
             validator.run_all_validations().await?;
         }
         Commands::All => {
             println!("Running all validators...");
-            // let mut voucher_validator = VoucherValidator::new(unifi_client.clone());
-            let site_validator = SiteValidator::new(unifi_client.clone());
-            let guest_validator = GuestValidator::new(unifi_client.clone());
+            let site_validator = SitesValidator::new(unifi_client.clone());
+            let guest_validator = GuestsValidator::new(unifi_client.clone());
             
-            // voucher_validator.run_all_validations().await?;
             site_validator.run_all_validations().await?;
             guest_validator.run_all_validations().await?;
         }

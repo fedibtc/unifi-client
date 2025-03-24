@@ -218,7 +218,7 @@ async fn authorize_guest(
 
     // Return guest authorization response.
     match guest_entry {
-        models::guest::GuestEntry::New { id, end, mac, .. } => {
+        models::guests::GuestEntry::New { id, end, mac, .. } => {
             let expiration_time = DateTime::<Utc>::from_timestamp(end, 0).unwrap_or_default();
 
             let quota_info = if let Some(quota) = payload.data_quota_megabytes {

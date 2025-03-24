@@ -175,7 +175,7 @@ impl UnauthorizeGuestRequest {
     /// # Examples
     ///
     /// ```
-    /// use unifi_client::models::guest::UnauthorizeGuestRequest;
+    /// use unifi_client::models::guests::UnauthorizeGuestRequest;
     ///
     /// let request = UnauthorizeGuestRequest::new("00:11:22:33:44:55");
     /// ```

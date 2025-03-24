@@ -12,7 +12,7 @@ use serde_json::Value;
 use tokio::sync::Mutex;
 use url::Url;
 
-use crate::api::guest;
+use crate::api::guests;
 use crate::models::{ApiResponse, EmptyResponse};
 use crate::{models, UniFiError, UniFiResult};
 

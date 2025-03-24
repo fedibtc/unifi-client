@@ -1,11 +1,11 @@
 use serde_json::Value;
 use unifi_client::{UniFiClient, UniFiResult};
 
-pub struct SiteValidator {
+pub struct SitesValidator {
     client: UniFiClient,
 }
 
-impl SiteValidator {
+impl SitesValidator {
     pub fn new(client: UniFiClient) -> Self {
         Self { client }
     }
