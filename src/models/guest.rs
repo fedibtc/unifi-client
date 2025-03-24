@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::UniFiError;
-
 /// Request to authorize a guest for network access.
 ///
 /// This represents the API request body for the authorize-guest command.
@@ -24,90 +22,7 @@ pub struct AuthorizeGuestRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bytes: Option<u64>,
     /// AP MAC address to which client is connected.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ap_mac: Option<String>,
-}
-
-/// Configuration for authorizing guest network access.
-///
-/// This struct is used to configure the parameters for guest authorization,
-/// including duration, bandwidth limits, and data quotas.
-#[derive(Default)]
-pub struct GuestConfig {
-    /// Client MAC address
-    pub mac: String,
-    /// Minutes until authorization expires
-    pub duration: Option<u32>,
-    /// Upload speed limit in Kbps
-    pub up: Option<u32>,
-    /// Download speed limit in Kbps
-    pub down: Option<u32>,
-    /// Data transfer quota in MB
-    pub data_quota: Option<u64>,
-    /// AP MAC address to which client is connected
-    pub ap_mac: Option<String>,
-}
-
-impl GuestConfig {
-    /// Create a new guest configuration builder.
-    pub fn builder() -> GuestConfigBuilder {
-        GuestConfigBuilder::default()
-    }
-}
-
-/// Builder for creating guest configuration in a fluent style.
-///
-/// This builder provides a convenient way to create guest configurations
-/// with optional parameters.
-#[derive(Default)]
-pub struct GuestConfigBuilder {
-    config: GuestConfig,
-}
-
-impl GuestConfigBuilder {
-    /// Set the client MAC address.
-    pub fn mac(mut self, mac: impl Into<String>) -> Self {
-        self.config.mac = mac.into().to_lowercase();
-        self
-    }
-
-    /// Set the duration in minutes until authorization expires.
-    pub fn duration(mut self, duration: u32) -> Self {
-        self.config.duration = Some(duration);
-        self
-    }
-
-    /// Set the upload speed limit in Kbps.
-    pub fn upload_limit(mut self, up: u32) -> Self {
-        self.config.up = Some(up);
-        self
-    }
-
-    /// Set the download speed limit in Kbps.
-    pub fn download_limit(mut self, down: u32) -> Self {
-        self.config.down = Some(down);
-        self
-    }
-
-    /// Set the data transfer quota in MB.
-    pub fn data_quota(mut self, quota: u64) -> Self {
-        self.config.data_quota = Some(quota);
-        self
-    }
-
-    /// Set the AP MAC address to which the client is connected.
-    pub fn ap_mac(mut self, ap_mac: impl Into<String>) -> Self {
-        self.config.ap_mac = Some(ap_mac.into().to_lowercase());
-        self
-    }
-
-    /// Build the guest configuration.
-    pub fn build(self) -> Result<GuestConfig, UniFiError> {
-        if self.config.mac.is_empty() {
-            return Err(UniFiError::ApiError("MAC address is required".to_string()));
-        }
-        Ok(self.config)
-    }
+    pub ap_mac: String,
 }
 
 /// Represents the status and details of a guest network authorization.
