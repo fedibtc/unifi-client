@@ -17,9 +17,8 @@ use crate::models::{ApiResponse, EmptyResponse};
 use crate::{models, UniFiError, UniFiResult};
 
 static UNIFI_CLIENT: Lazy<ArcSwap<UniFiClient>> = Lazy::new(|| {
-    // Create a default client using the builder's default values (all None).
-    let default_client = UniFiClient::builder().build_unauthenticated().unwrap();
-    ArcSwap::new(Arc::new(default_client))
+    // Create a default client using the builder's default values.
+    ArcSwap::new(Arc::new(UniFiClient::default()))
 });
 
 /// Initializes the static UniFiClient instance.  This should be called once
@@ -34,7 +33,7 @@ pub fn initialize(client: UniFiClient) {
 /// instance. It returns a reference to the current UniFi client, which can be
 /// used to make API requests. If it hasn't been previously initialized it
 /// returns a default instance with no authentication set.
-pub fn instance() -> impl std::ops::Deref<Target = UniFiClient> + Clone {
+pub fn instance() -> Arc<UniFiClient> {
     UNIFI_CLIENT.load_full()
 }
 
@@ -112,64 +111,57 @@ impl UniFiClientBuilder {
         self
     }
 
-    /// Builds a new UniFiClient without authenticating.
-    fn build_unauthenticated(self) -> UniFiResult<UniFiClient> {
-        // Use Option::and_then to chain the parsing, handling errors gracefully.
-        let url = self
-            .controller_url
-            .ok_or_else(|| UniFiError::ConfigurationError("Controller URL is required".into()))
+    pub async fn build(self) -> UniFiResult<UniFiClient> {
+        let site = self.site.unwrap_or_else(|| "default".to_string());
+
+        let timeout = self.timeout.unwrap_or(Duration::from_secs(30));
+        
+        let password = self.password.ok_or_else(|| {
+            UniFiError::ConfigurationError("Password is required".into())
+        })?;
+        
+        let username = self.username.ok_or_else(|| {
+            UniFiError::ConfigurationError("Username is required".into())
+        })?;
+
+        let controller_url = self.controller_url.ok_or_else(||
+            UniFiError::ConfigurationError("Controller URL is required".into()))
             .and_then(|url_str| {
                 Url::parse(&url_str).map_err(|e| {
                     UniFiError::ConfigurationError(format!("Invalid controller URL: {e}"))
                 })
             })?;
 
-        let username = self
-            .username
-            .ok_or_else(|| UniFiError::ConfigurationError("Username is required".into()))?;
+        let user_agent = self.user_agent
+            .as_deref()
+            .unwrap_or(concat!("unifi-client/", env!("CARGO_PKG_VERSION")));
 
-        let site = self.site.unwrap_or_else(|| "default".to_string());
-        let timeout = self.timeout.unwrap_or_else(|| Duration::from_secs(30));
-
-        let http_client = match self.http_client {
-            Some(client) => client,
-            None => ReqwestClient::builder()
+        let http_client = if let Some(custom_client) = self.http_client {
+            custom_client
+        } else {
+            ReqwestClient::builder()
                 .timeout(timeout)
                 .danger_accept_invalid_certs(!self.verify_ssl)
-                .user_agent(self.user_agent.as_deref().unwrap_or("unifi-client/0.1.0"))
                 .cookie_store(true)
+                .user_agent(user_agent)
                 .build()
                 .map_err(|e| {
                     UniFiError::ConfigurationError(format!("Failed to create HTTP client: {e}"))
-                })?,
+                })?
         };
 
-        Ok(UniFiClient {
-            controller_url: url,
+        let client = UniFiClient {
+            controller_url,
             username,
-            password: self.password,
+            password: Some(password),
             site,
             verify_ssl: self.verify_ssl,
             timeout,
             user_agent: self.user_agent,
             http_client,
             auth_state: Arc::new(Mutex::new(None)),
-        })
-    }
-
-    /// Builds a new UniFi client and authenticates it.
-    pub async fn build(self) -> UniFiResult<UniFiClient> {
-        // Build the client *without* authenticating.
-        let client = self.build_unauthenticated()?;
-
-        // Now, we *require* the password, and it's already in the client.
-        if client.password.is_none() {
-            return Err(UniFiError::ConfigurationError("Password is required for build()".into()));
-        }
-
-        // Authenticate immediately.
+        };
         client.login().await?;
-
         Ok(client)
     }
 }
@@ -195,6 +187,22 @@ pub struct UniFiClient {
     user_agent: Option<String>,
     http_client: ReqwestClient,
     auth_state: Arc<Mutex<Option<AuthState>>>,
+}
+
+impl Default for UniFiClient {
+    fn default() -> Self {
+        UniFiClient {
+            controller_url: Url::parse("https://localhost:8443").expect("Failed to parse default URL"),
+            username: "admin".to_string(),
+            password: Some("admin".to_string()),
+            site: "default".to_string(),
+            verify_ssl: false,
+            timeout: Duration::from_secs(30),
+            user_agent: Some(concat!("unifi-client/", env!("CARGO_PKG_VERSION")).to_string()),
+            http_client: reqwest::Client::new(),
+            auth_state: Arc::new(Mutex::new(None)),
+        }
+    }
 }
 
 impl fmt::Debug for UniFiClient {
