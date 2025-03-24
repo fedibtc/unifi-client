@@ -1,26 +1,18 @@
 use reqwest::Method;
 
-use super::ApiEndpoint;
-use crate::{
-    AuthorizeGuestRequest, EmptyResponse, GuestConfig, GuestEntry, UnauthorizeGuestRequest,
-    UniFiClient, UniFiError,
-};
+use crate::models::EmptyResponse;
+use crate::{models, UniFiClient, UniFiError, UniFiResult};
 
 /// Provides methods for managing UniFi wireless guest authorizations.
 ///
 /// This API allows authorizing, listing, and unauthorized wireless guest
 /// devices.
-pub struct GuestApi<'a> {
-    client: &'a UniFiClient,
+#[derive(Debug)]
+pub struct GuestHandler {
+    client: UniFiClient,
 }
 
-impl<'a> ApiEndpoint for GuestApi<'a> {
-    fn client(&self) -> &UniFiClient {
-        self.client
-    }
-}
-
-impl<'a> GuestApi<'a> {
+impl GuestHandler {
     /// Creates a new guest API instance.
     ///
     /// This method is intended for internal use by the UniFi client.
@@ -29,76 +21,64 @@ impl<'a> GuestApi<'a> {
     ///
     /// * `client` - Reference to the UniFi client that will be used for API
     ///   requests
-    pub(crate) fn new(client: &'a UniFiClient) -> Self {
+    pub(crate) fn new(client: UniFiClient) -> Self {
         Self { client }
     }
 
     /// Authorizes a guest device for network access.
     ///
     /// This method allows a device to access the network based on the settings
-    /// specified in the `config` parameter, such as duration, bandwidth limits,
+    /// specified in the builder methods, such as duration, bandwidth limits,
     /// and data quota.
     ///
     /// # Arguments
     ///
-    /// * `config` - Configuration options for the guest authorization,
-    ///   including MAC address, duration, and bandwidth limits
+    /// * `mac` - The MAC address of the guest device to authorize.
     ///
-    /// # Errors
+    /// # Returns
     ///
-    /// Returns an error if the request fails or if the UniFi controller returns
-    /// an error response.
+    /// Returns an `AuthorizeGuestBuilder` instance, which allows for setting
+    /// optional parameters before sending the request.
     ///
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UniFiClient) -> Result<(), unifi_client::UniFiError> {
-    /// use unifi_client::GuestConfig;
-    ///
-    /// let config = GuestConfig::builder()
-    ///     .mac("00:11:22:33:44:55")
+    /// # use unifi_client::UniFiClient;
+    /// #
+    /// # async fn example(client: &UniFiClient) -> Result<(), unifi_client::UniFiError> {
+    /// let guest = client
+    ///     .guests()
+    ///     .authorize("00:11:22:33:44:55") // MAC address of the guest
     ///     .duration(60) // 60 minutes
+    ///     .up(1024) // 1 Mbps upload
+    ///     .down(2048) // 2 Mbps download
     ///     .data_quota(1024) // 1 GB limit
-    ///     .build()?;
+    ///     .send() // Send the request
+    ///     .await?;
     ///
-    /// let guest = client.guests().authorize(config).await?;
     /// println!("Guest authorized until {}", guest.expires_at());
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn authorize(&self, config: GuestConfig) -> Result<GuestEntry, UniFiError> {
-        let mut client = self.client.clone();
-        let site = self.client.site();
-        let endpoint = format!("/api/s/{}/cmd/stamgr", site);
-
-        let response: Vec<GuestEntry> = client
-            .request(Method::POST, &endpoint, Some(AuthorizeGuestRequest::try_from(config)?))
-            .await?;
-
-        response
-            .first()
-            .cloned()
-            .ok_or_else(|| UniFiError::ApiError("No authorize guest response received".to_string()))
+    pub fn authorize(&self, mac: impl Into<String>) -> AuthorizeGuestBuilder {
+        AuthorizeGuestBuilder::new(self.client.clone(), mac.into())
     }
 
     /// Lists all guest authorizations within a specified time window.
     ///
-    /// # Arguments
+    /// # Returns
     ///
-    /// * `within` - Optional time frame in hours to look back for guest
-    ///   authorizations (default: 8760 hours / 1 year)
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the request fails or if the UniFi controller returns
-    /// an error response.
+    /// Returns a `ListGuestsBuilder` instance, which allows for setting
+    /// optional parameters before sending the request.
     ///
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UniFiClient) -> Result<(), unifi_client::UniFiError> {
+    /// # use unifi_client::UniFiClient;
+    /// #
+    /// # async fn example(client: &UniFiClient) -> Result<(), unifi_client::UniFiError> {
     /// // Get all guest authorizations from the past 24 hours
-    /// let guests = client.guests().list(Some(24)).await?;
+    /// let guests = client.guests().list().within(24).send().await?;
     ///
     /// for guest in guests {
     ///     println!("Guest {}: expires at {}", guest.mac(), guest.expires_at());
@@ -106,16 +86,8 @@ impl<'a> GuestApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn list(&self, within: Option<u32>) -> Result<Vec<GuestEntry>, UniFiError> {
-        let mut client = self.client.clone();
-        let site = self.client.site();
-        let endpoint = format!("/api/s/{}/stat/guest", site);
-
-        let params = within.map(|hours| serde_json::json!({ "within": hours }));
-
-        let response: Vec<GuestEntry> = client.request(Method::GET, &endpoint, params).await?;
-
-        Ok(response)
+    pub fn list(&self) -> ListGuestsBuilder {
+        ListGuestsBuilder::new(self.client.clone())
     }
 
     /// Revokes network access for a specific guest device.
@@ -124,30 +96,24 @@ impl<'a> GuestApi<'a> {
     ///
     /// * `mac` - MAC address of the guest device to unauthorize
     ///
-    /// # Errors
+    /// # Returns
     ///
-    /// Returns an error if the request fails or if the UniFi controller returns
-    /// an error response.
+    /// Returns an `UnauthorizeGuestBuilder` instance.  Call `.send()` on this
+    /// builder to execute the request.
     ///
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UniFiClient) -> Result<(), unifi_client::UniFiError> {
+    /// # use unifi_client::UniFiClient;
+    /// #
+    /// # async fn example(client: &UniFiClient) -> Result<(), unifi_client::UniFiError> {
     /// // Unauthorize a specific guest
-    /// client.guests().unauthorize("00:11:22:33:44:55").await?;
+    /// client.guests().unauthorize("00:11:22:33:44:55").send().await?;
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn unauthorize(&self, mac: impl Into<String>) -> Result<(), UniFiError> {
-        let mut client = self.client.clone();
-        let site = self.client.site();
-        let endpoint = format!("/api/s/{}/cmd/stamgr", site);
-        let request = UnauthorizeGuestRequest::new(mac);
-
-        let _response: EmptyResponse =
-            client.request(Method::POST, &endpoint, Some(request)).await?;
-
-        Ok(())
+    pub fn unauthorize(&self, mac: impl Into<String>) -> UnauthorizeGuestBuilder {
+        UnauthorizeGuestBuilder::new(self.client.clone(), mac.into())
     }
 
     /// Revokes network access for all authorized guest devices.
@@ -156,29 +122,162 @@ impl<'a> GuestApi<'a> {
     /// them one by one. Use with caution as this operation cannot be
     /// undone.
     ///
-    /// # Errors
+    /// # Returns
     ///
-    /// Returns an error if listing guests fails or if any guest unauthorization
-    /// fails.
+    /// Returns an `UnauthorizeAllGuestsBuilder` instance. Call `.send()` on
+    /// this builder to execute the request.
     ///
     /// # Examples
     ///
     /// ```no_run
-    /// # async fn example(client: &unifi_client::UniFiClient) -> Result<(), unifi_client::UniFiError> {
+    /// # use unifi_client::UniFiClient;
+    /// #
+    /// # async fn example(client: &UniFiClient) -> Result<(), unifi_client::UniFiError> {
     /// // Unauthorize all guests in the system
-    /// client.guests().unauthorize_all().await?;
+    /// client.guests().unauthorize_all().send().await?;
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn unauthorize_all(&self) -> Result<(), UniFiError> {
-        // Get all guests
-        let all_guests = self.list(None).await?;
+    pub fn unauthorize_all(&self) -> UnauthorizeAllGuestsBuilder {
+        UnauthorizeAllGuestsBuilder::new(self.client.clone())
+    }
+}
 
-        // Unauthorize each guest
-        for guest in all_guests {
-            self.unauthorize(guest.mac()).await?;
+#[derive(Debug, Clone)]
+pub struct AuthorizeGuestBuilder {
+    client: UniFiClient,
+    mac: String,
+    duration: Option<u32>,
+    up: Option<u32>,
+    down: Option<u32>,
+    data_quota: Option<u64>,
+    ap_mac: Option<String>,
+}
+
+impl AuthorizeGuestBuilder {
+    pub(crate) fn new(client: UniFiClient, mac: String) -> Self {
+        Self {
+            client,
+            mac,
+            duration: None,
+            up: None,
+            down: None,
+            data_quota: None,
+            ap_mac: None,
         }
+    }
 
+    pub fn duration(mut self, duration: u32) -> Self {
+        self.duration = Some(duration);
+        self
+    }
+
+    pub fn up(mut self, up: u32) -> Self {
+        self.up = Some(up);
+        self
+    }
+
+    pub fn down(mut self, down: u32) -> Self {
+        self.down = Some(down);
+        self
+    }
+
+    pub fn data_quota(mut self, data_quota: u64) -> Self {
+        self.data_quota = Some(data_quota);
+        self
+    }
+
+    pub fn ap_mac(mut self, ap_mac: impl Into<String>) -> Self {
+        self.ap_mac = Some(ap_mac.into());
+        self
+    }
+
+    pub async fn send(self) -> UniFiResult<models::guest::GuestEntry> {
+        let site = self.client.site();
+        let endpoint = format!("/api/s/{}/cmd/stamgr", site);
+
+        let request = models::guest::AuthorizeGuestRequest {
+            cmd: "authorize-guest".to_string(),
+            mac: self.mac,
+            minutes: self.duration,
+            up: self.up,
+            down: self.down,
+            bytes: self.data_quota,
+            ap_mac: self.ap_mac,
+        };
+
+        let response: Vec<models::guest::GuestEntry> =
+            self.client.request(Method::POST, &endpoint, Some(request)).await?;
+
+        response
+            .into_iter()
+            .next()
+            .ok_or_else(|| UniFiError::ApiError("No authorize guest response received".to_string()))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ListGuestsBuilder {
+    client: UniFiClient,
+    within: Option<u32>,
+}
+
+impl ListGuestsBuilder {
+    pub(crate) fn new(client: UniFiClient) -> Self {
+        Self {
+            client,
+            within: None,
+        }
+    }
+    pub fn within(mut self, within: u32) -> Self {
+        self.within = Some(within);
+        self
+    }
+
+    pub async fn send(self) -> UniFiResult<Vec<models::guest::GuestEntry>> {
+        let site = self.client.site();
+        let endpoint = format!("/api/s/{}/stat/guest", site);
+        let params = self.within.map(|hours| serde_json::json!({ "within": hours }));
+
+        self.client.request(Method::GET, &endpoint, params).await
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UnauthorizeGuestBuilder {
+    client: UniFiClient,
+    mac: String,
+}
+
+impl UnauthorizeGuestBuilder {
+    pub(crate) fn new(client: UniFiClient, mac: String) -> Self {
+        Self { client, mac }
+    }
+
+    pub async fn send(self) -> UniFiResult<()> {
+        let site = self.client.site();
+        let endpoint = format!("/api/s/{}/cmd/stamgr", site);
+        let request = models::guest::UnauthorizeGuestRequest::new(self.mac);
+
+        self.client.request(Method::POST, &endpoint, Some(request)).await.map(|_: EmptyResponse| ())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UnauthorizeAllGuestsBuilder {
+    client: UniFiClient,
+}
+
+impl UnauthorizeAllGuestsBuilder {
+    pub(crate) fn new(client: UniFiClient) -> Self {
+        Self { client }
+    }
+
+    pub async fn send(self) -> UniFiResult<()> {
+        let all_guests = self.client.guests().list().send().await?;
+        for guest in all_guests {
+            self.client.guests().unauthorize(guest.mac()).send().await?
+        }
         Ok(())
     }
 }

@@ -1,11 +1,14 @@
 use serde_json::json;
-use unifi_client::{UniFiClient, ClientConfig, UniFiError};
 use wiremock::{MockServer, Mock, ResponseTemplate};
-use wiremock::matchers::{method, path, body_json};
+use wiremock::matchers::{header, method, path, body_json};
+
+mod common;
+
+use common::setup_test_client;
+use unifi_client::{UniFiClient, UniFiError};
 
 #[tokio::test]
-async fn test_successful_login() {
-    // Start a mock server
+async fn test_successful_login() -> Result<(), UniFiError>{
     let mock_server = MockServer::start().await;
     
     // Set up authentication mock
@@ -24,75 +27,70 @@ async fn test_successful_login() {
         .mount(&mock_server)
         .await;
     
-    // Create test config
-    let config = ClientConfig::builder()
-        .controller_url(&mock_server.uri())
-        .username("test-user")
-        .password("test-password")
-        .site("default")
-        .verify_ssl(false)
-        .build()
-        .unwrap();
+    let unifi_client = setup_test_client(&mock_server.uri()).await;
     
-    // Create client
-    let mut client = UniFiClient::new(config);
+    // Test a different call, after the build/login
+    // Set up a mock response for /api/self.
+    Mock::given(method("GET"))
+        .and(path("/api/self"))
+        .and(header("cookie", "unifises=test-cookie"))
+        .respond_with(ResponseTemplate::new(200)
+            .set_body_json(json!({
+                "meta": { "rc": "ok" },
+                "data": []
+            })))
+        .mount(&mock_server)
+        .await;
+
+    // Test an authenticated call
+    let result = unifi_client.raw_request("GET", "/api/self", None::<()>).await;
     
-    // Test login
-    let result = client.login(None).await;
-    
-    // Verify successful login
     assert!(result.is_ok());
+
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_failed_login_invalid_credentials() {
-    // Start a mock server
+async fn test_failed_login_invalid_credentials() -> Result<(), UniFiError> {
     let mock_server = MockServer::start().await;
-    
-    // Set up authentication mock for failure
+
+    // Set up authentication mock for failure (returning an error in the *body*)
     Mock::given(method("POST"))
         .and(path("/api/login"))
         .and(body_json(json!({
             "username": "test-user",
             "password": "wrong-password"
         })))
-        .respond_with(ResponseTemplate::new(200)
+        .respond_with(ResponseTemplate::new(400)
             .set_body_json(json!({
-                "meta": { 
+                "meta": {
                     "rc": "error",
-                    "msg": "Invalid username or password"
+                    "msg": "api.err.Invalid"
                 },
                 "data": []
-            }))
-            .insert_header("set-cookie", "unifises=test-cookie")
-        )
+            })))
         .mount(&mock_server)
         .await;
-    
-    // Create test config
-    let config = ClientConfig::builder()
-        .controller_url(&mock_server.uri())
+
+    // Build the client, expect an error during the build() process (login failure).
+    let unifi_client = UniFiClient::builder()
+        .controller_url(mock_server.uri())
         .username("test-user")
         .password("wrong-password")
         .site("default")
         .verify_ssl(false)
         .build()
-        .unwrap();
-    
-    // Create client
-    let mut client = UniFiClient::new(config);
-    
-    // Test login
-    let result = client.login(None).await;
-    
-    // Verify failed login
-    assert!(result.is_err());
-    match result {
+        .await;
+
+    assert!(unifi_client.is_err()); // Expecting an error
+
+    match unifi_client {
         Err(UniFiError::AuthenticationError(msg)) => {
-            assert_eq!(msg, "Invalid username or password");
+            assert_eq!(msg, "Authentication failed with status code: 400 Bad Request");
         },
-        _ => panic!("Expected AuthenticationError"),
+        _ => panic!("Expected ApiError"),
     }
+    Ok(())
 }
 
 #[tokio::test]
@@ -107,25 +105,19 @@ async fn test_login_server_error() {
         .mount(&mock_server)
         .await;
     
-    // Create test config
-    let config = ClientConfig::builder()
-        .controller_url(&mock_server.uri())
+    // Build the client, expect an error during the build() process (login failure).
+    let unifi_client = UniFiClient::builder()
+        .controller_url(mock_server.uri())
         .username("test-user")
         .password("test-password")
         .site("default")
         .verify_ssl(false)
         .build()
-        .unwrap();
-    
-    // Create client
-    let mut client = UniFiClient::new(config);
-    
-    // Test login
-    let result = client.login(None).await;
+        .await;
     
     // Verify error
-    assert!(result.is_err());
-    match result {
+    assert!(unifi_client.is_err());
+    match unifi_client {
         Err(UniFiError::AuthenticationError(msg)) => {
             assert!(msg.contains("500"));
         },
@@ -151,25 +143,19 @@ async fn test_login_no_cookies() {
         .mount(&mock_server)
         .await;
     
-    // Create test config
-    let config = ClientConfig::builder()
-        .controller_url(&mock_server.uri())
+    // Build the client, expect an error during the build() process (login failure).
+    let unifi_client = UniFiClient::builder()
+        .controller_url(mock_server.uri())
         .username("test-user")
         .password("test-password")
         .site("default")
         .verify_ssl(false)
         .build()
-        .unwrap();
-    
-    // Create client
-    let mut client = UniFiClient::new(config);
-    
-    // Test login
-    let result = client.login(None).await;
+        .await;
     
     // Verify error
-    assert!(result.is_err());
-    match result {
+    assert!(unifi_client.is_err());
+    match unifi_client {
         Err(UniFiError::AuthenticationError(msg)) => {
             assert_eq!(msg, "No cookies received from server");
         },
@@ -178,58 +164,19 @@ async fn test_login_no_cookies() {
 }
 
 #[tokio::test]
-async fn test_explicit_password() {
-    // Start a mock server
-    let mock_server = MockServer::start().await;
-    
-    // Set up authentication mock
-    Mock::given(method("POST"))
-        .and(path("/api/login"))
-        .and(body_json(json!({
-            "username": "test-user",
-            "password": "explicit-password"
-        })))
-        .respond_with(ResponseTemplate::new(200)
-            .set_body_json(json!({
-                "meta": { "rc": "ok" },
-                "data": [{ "username": "test-user" }]
-            }))
-            .insert_header("set-cookie", "unifises=test-cookie"))
-        .mount(&mock_server)
-        .await;
-    
-    // Create test config
-    let config = ClientConfig::builder()
-        .controller_url(&mock_server.uri())
-        .username("test-user")
-        // No password in config
-        .site("default")
-        .verify_ssl(false)
-        .build()
-        .unwrap();
-    
-    // Create client
-    let mut client = UniFiClient::new(config);
-    
-    // Test login with explicit password
-    let result = client.login(Some("explicit-password".to_string())).await;
-    
-    // Verify successful login
-    assert!(result.is_ok());
-}
-
-#[tokio::test]
 async fn test_config_error() {
     // Test invalid URL
-    let config_result = ClientConfig::builder()
+    let unifi_client = UniFiClient::builder()
         .controller_url("invalid-url")
         .username("test-user")
         .password("test-password")
         .site("default")
-        .build();
-    
-    assert!(config_result.is_err());
-    match config_result {
+        .verify_ssl(false)
+        .build()
+        .await;
+
+    assert!(unifi_client.is_err());
+    match unifi_client {
         Err(UniFiError::ConfigurationError(msg)) => {
             assert!(msg.contains("Invalid controller URL"));
         },
@@ -237,15 +184,16 @@ async fn test_config_error() {
     }
     
     // Test missing username
-    let config_result = ClientConfig::builder()
+    let unifi_client = UniFiClient::builder()
         .controller_url("https://example.com")
         // No username
         .password("test-password")
         .site("default")
-        .build();
+        .build()
+        .await;
     
-    assert!(config_result.is_err());
-    match config_result {
+    assert!(unifi_client.is_err());
+    match unifi_client {
         Err(UniFiError::ConfigurationError(msg)) => {
             assert_eq!(msg, "Username is required");
         },

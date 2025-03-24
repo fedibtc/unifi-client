@@ -1,15 +1,15 @@
 use clap::{Parser, Subcommand};
 
-use unifi_client::{ClientConfig, UniFiClient, UniFiResult};
+use unifi_client::{UniFiClient, UniFiResult};
 
 mod guest;
 mod site;
-mod voucher;
+// mod voucher;
 mod utils;
 
 use guest::GuestValidator;
 use site::SiteValidator;
-use voucher::VoucherValidator;
+// use voucher::VoucherValidator;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -32,46 +32,43 @@ enum Commands {
     All,
     Guest,
     Site,
-    Voucher,
+    // Voucher,
 }
 
 #[tokio::main]
 async fn main() -> UniFiResult<()> {
     let cli = Cli::parse();
 
-    let config = ClientConfig::builder()
+    let unifi_client = UniFiClient::builder()
         .controller_url(&cli.controller_url)
         .username(&cli.username)
         .password(&cli.password)
         .site("default")
         .verify_ssl(false)
-        .build()?;
-
-    let mut client = UniFiClient::new(config);
+        .build()
+        .await
+        .expect("Failed to build UniFiClient");
     
-    // Login first
-    client.login(None).await?;
-
     match cli.command.unwrap_or(Commands::All) {
-        Commands::Voucher => {
-            let mut validator = VoucherValidator::new(client);
-            validator.run_all_validations().await?;
-        }
+        // Commands::Voucher => {
+        //     let mut validator = VoucherValidator::new(unifi_client);
+        //     validator.run_all_validations().await?;
+        // }
         Commands::Site => {
-            let validator = SiteValidator::new(client);
+            let validator = SiteValidator::new(unifi_client);
             validator.run_all_validations().await?;
         }
         Commands::Guest => {
-            let validator = GuestValidator::new(client);
+            let validator = GuestValidator::new(unifi_client);
             validator.run_all_validations().await?;
         }
         Commands::All => {
             println!("Running all validators...");
-            let mut voucher_validator = VoucherValidator::new(client.clone());
-            let site_validator = SiteValidator::new(client.clone());
-            let guest_validator = GuestValidator::new(client.clone());
+            // let mut voucher_validator = VoucherValidator::new(unifi_client.clone());
+            let site_validator = SiteValidator::new(unifi_client.clone());
+            let guest_validator = GuestValidator::new(unifi_client.clone());
             
-            voucher_validator.run_all_validations().await?;
+            // voucher_validator.run_all_validations().await?;
             site_validator.run_all_validations().await?;
             guest_validator.run_all_validations().await?;
         }

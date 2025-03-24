@@ -1,5 +1,8 @@
 use serde::Deserialize;
 
+pub mod auth;
+pub mod guest;
+
 /// Standard API response envelope from the UniFi controller.
 #[derive(Debug, Deserialize)]
 pub struct ApiResponse<T> {

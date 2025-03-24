@@ -11,7 +11,7 @@ impl SiteValidator {
     }
 
     async fn validate_site_info(&self) -> UniFiResult<()> {
-        let mut client = self.client.clone();
+        let client = self.client.clone();
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/stat/sysinfo", site);
         

@@ -28,22 +28,6 @@ pub struct AuthorizeGuestRequest {
     pub ap_mac: Option<String>,
 }
 
-impl TryFrom<GuestConfig> for AuthorizeGuestRequest {
-    type Error = UniFiError;
-
-    fn try_from(config: GuestConfig) -> Result<Self, Self::Error> {
-        Ok(Self {
-            cmd: "authorize-guest".to_string(),
-            mac: config.mac,
-            minutes: config.duration,
-            up: config.up,
-            down: config.down,
-            bytes: config.data_quota,
-            ap_mac: config.ap_mac,
-        })
-    }
-}
-
 /// Configuration for authorizing guest network access.
 ///
 /// This struct is used to configure the parameters for guest authorization,
@@ -276,7 +260,7 @@ impl UnauthorizeGuestRequest {
     /// # Examples
     ///
     /// ```
-    /// use unifi_client::UnauthorizeGuestRequest;
+    /// use unifi_client::models::guest::UnauthorizeGuestRequest;
     ///
     /// let request = UnauthorizeGuestRequest::new("00:11:22:33:44:55");
     /// ```

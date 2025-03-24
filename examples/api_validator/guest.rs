@@ -13,7 +13,7 @@ impl GuestValidator {
     }
 
     async fn validate_authorize_simple_duration(&self) -> UniFiResult<()> {
-        let mut client = self.client.clone();
+        let client = self.client.clone();
 
         // Test MAC address and duration
         let test_mac = random_mac();
@@ -93,7 +93,7 @@ impl GuestValidator {
     }
 
     async fn validate_list_guests(&self) -> UniFiResult<()> {
-        let mut client = self.client.clone();
+        let client = self.client.clone();
         let site = self.client.site();
 
         // First authorize a guest so we can ensure there are guests to list
@@ -168,7 +168,7 @@ impl GuestValidator {
     }
 
     async fn validate_unauthorize(&self) -> UniFiResult<()> {
-        let mut client = self.client.clone();
+        let client = self.client.clone();
 
         // First authorize a guest so we can then unauthorize them
         let test_mac = random_mac();
@@ -212,7 +212,7 @@ impl GuestValidator {
     }
 
     async fn validate_minutes_parameter_range(&self) -> UniFiResult<()> {
-        let mut client = self.client.clone();
+        let client = self.client.clone();
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
         
@@ -286,7 +286,7 @@ impl GuestValidator {
     }
 
     async fn validate_mac_address_formats(&self) -> UniFiResult<()> {
-        let mut client = self.client.clone();
+        let client = self.client.clone();
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
         

@@ -3,8 +3,10 @@ use wiremock::{MockServer, Mock, ResponseTemplate};
 use wiremock::matchers::{method, path, body_json, header};
 
 mod common;
+
 use common::setup_test_client;
-use unifi_client::{GuestConfig, GuestEntry, UniFiError};
+use unifi_client::models::guest::GuestEntry;
+use unifi_client::UniFiError;
 
 #[tokio::test]
 async fn test_authorize_guest() {
@@ -22,7 +24,7 @@ async fn test_authorize_guest() {
         .respond_with(ResponseTemplate::new(200)
             .set_body_json(json!({
                 "meta": { "rc": "ok" },
-                "data": [{ "username": "test-user" }]
+                "data": []
             }))
             .insert_header("set-cookie", "unifises=test-cookie"))
         .mount(&mock_server)
@@ -53,15 +55,14 @@ async fn test_authorize_guest() {
         .mount(&mock_server)
         .await;
 
-    let client = setup_test_client(&mock_server.uri()).await;
+    let unifi_client = setup_test_client(&mock_server.uri()).await;
     
-    let config = GuestConfig::builder()
-        .mac("00:11:22:33:44:55")
-        .duration(duration)
-        .build()
-        .unwrap();
-    
-    let guest = client.guests().authorize(config).await.unwrap();
+   let guest = unifi_client.guests()
+      .authorize("00:11:22:33:44:55")
+      .duration(duration)
+      .send()
+      .await
+      .unwrap();
     
     match guest {
         GuestEntry::Inactive { expired, mac, start, end,.. } => {
@@ -83,13 +84,13 @@ async fn test_list_guests() {
         .respond_with(ResponseTemplate::new(200)
             .set_body_json(json!({
                 "meta": { "rc": "ok" },
-                "data": [{ "username": "test-user" }]
+                "data": []
             }))
             .insert_header("set-cookie", "unifises=test-cookie"))
         .mount(&mock_server)
         .await;
     
-    // Updated guest list mock with correct response structure
+    // Set up guest list mock
     Mock::given(method("GET"))
         .and(path("/api/s/default/stat/guest"))
         .and(header("cookie", "unifises=test-cookie"))
@@ -121,9 +122,9 @@ async fn test_list_guests() {
         .mount(&mock_server)
         .await;
 
-    let client = setup_test_client(&mock_server.uri()).await;
+    let unifi_client = setup_test_client(&mock_server.uri()).await;
     
-    let guests = client.guests().list(None).await.unwrap();
+    let guests = unifi_client.guests().list().send().await.unwrap();
     
     assert_eq!(guests.len(), 2);
     
@@ -146,6 +147,42 @@ async fn test_list_guests() {
 }
 
 #[tokio::test]
+async fn test_list_guests_with_within() {
+    let mock_server = MockServer::start().await;
+    
+    // Set up authentication mock
+    Mock::given(method("POST"))
+        .and(path("/api/login"))
+        .respond_with(ResponseTemplate::new(200)
+            .set_body_json(json!({
+                "meta": { "rc": "ok" },
+                "data": []
+            }))
+            .insert_header("set-cookie", "unifises=test-cookie"))
+        .mount(&mock_server)
+        .await;
+    
+    // Set up guest list mock with within parameter
+    Mock::given(method("GET"))
+        .and(path("/api/s/default/stat/guest"))
+        .and(header("cookie", "unifises=test-cookie"))
+        .and(body_json(json!({"within": 24})))
+        .respond_with(ResponseTemplate::new(200)
+            .set_body_json(json!({
+                "meta": { "rc": "ok" },
+                "data": []
+            })))
+        .mount(&mock_server)
+        .await;
+
+    let client = setup_test_client(&mock_server.uri()).await;
+    
+    // Use the builder and .send(), including .within()
+    let guests = client.guests().list().within(24).send().await.unwrap();
+    assert!(guests.is_empty());
+}
+
+#[tokio::test]
 async fn test_unauthorize_guest() {
     let mock_server = MockServer::start().await;
     
@@ -155,7 +192,7 @@ async fn test_unauthorize_guest() {
         .respond_with(ResponseTemplate::new(200)
             .set_body_json(json!({
                 "meta": { "rc": "ok" },
-                "data": [{ "username": "test-user" }]
+                "data": []
             }))
             .insert_header("set-cookie", "unifises=test-cookie"))
         .mount(&mock_server)
@@ -178,43 +215,83 @@ async fn test_unauthorize_guest() {
         .await;
 
     let client = setup_test_client(&mock_server.uri()).await;
-    
-    let result = client.guests().unauthorize("00:11:22:33:44:55").await;
+
+    // Use the builder and .send()
+    let result = client.guests().unauthorize("00:11:22:33:44:55").send().await;
     assert!(result.is_ok());
 }
 
 #[tokio::test]
-async fn test_list_guests_with_within() {
+async fn test_unauthorize_all_guests() {
     let mock_server = MockServer::start().await;
-    
+
     // Set up authentication mock
     Mock::given(method("POST"))
         .and(path("/api/login"))
         .respond_with(ResponseTemplate::new(200)
             .set_body_json(json!({
                 "meta": { "rc": "ok" },
-                "data": [{ "username": "test-user" }]
+                "data": []
             }))
             .insert_header("set-cookie", "unifises=test-cookie"))
         .mount(&mock_server)
         .await;
     
-    // Set up guest list mock with within parameter
+    // Mock for listing guests
     Mock::given(method("GET"))
         .and(path("/api/s/default/stat/guest"))
         .and(header("cookie", "unifises=test-cookie"))
         .respond_with(ResponseTemplate::new(200)
             .set_body_json(json!({
                 "meta": { "rc": "ok" },
-                "data": []
+                "data": [
+                    {
+                        "_id": "guest1",
+                        "mac": "00:11:22:33:44:55",
+                        "authorized_by": "api",
+                        "start": 1622548800,
+                        "end": 1622550600,
+                        "expired": false,
+                        "site_id": "default"
+                    },
+                    {
+                        "_id": "guest2",
+                        "mac": "aa:bb:cc:dd:ee:ff",
+                        "authorized_by": "api",
+                        "start": 1622548800,
+                        "end": 1622550600,
+                        "expired": true,
+                        "site_id": "default",
+                        "unauthorized_by": "api"
+                    }
+                ]
             })))
         .mount(&mock_server)
         .await;
 
+    // Mock for unauthorizing guests (expect TWO calls)
+    Mock::given(method("POST"))
+        .and(path("/api/s/default/cmd/stamgr"))
+        .and(header("cookie", "unifises=test-cookie"))
+        .and(body_json(json!({"cmd": "unauthorize-guest", "mac": "00:11:22:33:44:55"})))
+        .respond_with(ResponseTemplate::new(200)
+            .set_body_json(json!({"meta": { "rc": "ok" }, "data": []})))
+        .mount(&mock_server)
+        .await;
+
+     Mock::given(method("POST"))
+        .and(path("/api/s/default/cmd/stamgr"))
+        .and(header("cookie", "unifises=test-cookie"))
+        .and(body_json(json!({"cmd": "unauthorize-guest", "mac": "aa:bb:cc:dd:ee:ff"})))
+        .respond_with(ResponseTemplate::new(200)
+            .set_body_json(json!({"meta": { "rc": "ok" }, "data": []})))
+        .mount(&mock_server)
+        .await;
+
     let client = setup_test_client(&mock_server.uri()).await;
-    
-    let guests = client.guests().list(Some(24)).await.unwrap();
-    assert!(guests.is_empty());
+
+    let result = client.guests().unauthorize_all().send().await;
+    assert!(result.is_ok());
 }
 
 #[tokio::test]
@@ -227,7 +304,7 @@ async fn test_guest_api_error() {
         .respond_with(ResponseTemplate::new(200)
             .set_body_json(json!({
                 "meta": { "rc": "ok" },
-                "data": [{ "username": "test-user" }]
+                "data": []
             }))
             .insert_header("set-cookie", "unifises=test-cookie"))
         .mount(&mock_server)
@@ -250,7 +327,7 @@ async fn test_guest_api_error() {
 
     let client = setup_test_client(&mock_server.uri()).await;
     
-    let result = client.guests().list(None).await;
+    let result = client.guests().list().send().await;
     
     assert!(result.is_err());
     match result {
@@ -259,4 +336,4 @@ async fn test_guest_api_error() {
         },
         _ => panic!("Expected ApiError"),
     }
-} 
+}

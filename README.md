@@ -6,20 +6,23 @@
 <!-- [![CI](https://github.com/fedibtc/unifi-client/workflows/CI/badge.svg)](https://github.com/fedibtc/unifi-client/actions) -->
 
 A Rust client library for the Ubiquiti UniFi Controller API. This crate provides
-a type-safe, async interface for interacting with UniFi controllers.
+a type-safe, async interface for interacting with UniFi controllers, allowing you
+to manage guests, sites, and more.
 
 > **Note:** This crate is not officially associated with or endorsed by Ubiquiti
-  Inc.
+> Inc.
+
+## Features
 
 ## Features
 
 - 🔐 Secure authentication with UniFi controllers
-- 🎫 Complete voucher management (create, list, delete)
+- 🌐 Access via a convenient singleton or multiple independent clients
+- 🛜 Complete guest management: authorize, list, and unauthorize guests.
 - 🔄 Async API with Tokio runtime support
 - 🛡️ Comprehensive error handling
-- 🧪 Well-tested with both unit and integration tests
-- 📝 Fully documented API
-- 🧩 Extensible architecture ready for additional API endpoints
+- 🧪 Well-tested (unit and integration tests)
+- 🧩 Extensible architecture, ready for additional API endpoints
 
 ## Installation
 
@@ -27,111 +30,173 @@ Add `unifi-client` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-unifi-client = "0.1.0"
+unifi-client = "0.1.0"  # Replace with the actual version
+tokio = { version = "1", features = ["full"] }
 ```
 
 ## Quick Start
 
+The easiest way to use unifi-client is with the singleton pattern. This provides
+a single, globally accessible client instance.
+
 ```rust
-use unifi_client::{UniFiClient, ClientConfig};
+use unifi_client::{UniFiClient, UniFiError};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create a client
-    let config = ClientConfig::builder()
-        .controller_url("https://unifi.example.com:8443")
-        .username("admin")
-        .site("default")
-        .verify_ssl(false)
-        .build()?;
-    
-    let mut client = UniFiClient::new(config);
-    
-    // Login - this will prompt for password if not provided
-    client.login(None).await?;
-    
-    // Get list of sites
-    println!("\nFetching available sites...");
-    let sites = client.sites().list().await?;
+async fn main() -> Result<(), UniFiError> {
+    // 1. Initialize the singleton client (ONCE, at the start).
+    //    Get your credentials securely (e.g., from environment variables).
+    let client = UniFiClient::builder()
+        .controller_url("https://your-unifi-controller:8443") // Replace!
+        .username("your_username") // Replace!
+        .password_from_env("UNIFI_PASSWORD") // Best practice
+        .site("default")  // Or your site ID
+        .verify_ssl(false)  // Set to `true` if you have valid SSL
+        .build()
+        .await?;
+    unifi_client::initialize(client);
 
-    // Print site list
-    println!("Available sites:");
-    println!("{:<36} {:<20} {}", "ID", "Name", "Description");
-    println!("{}", "-".repeat(80));
-    
-    for site in &sites {
-        println!("{:<36} {:<20} {}", site.id, site.name, site.desc);
-    }
-    
+    // 2. Access the client anywhere using `unifi_client::instance()`:
+    let guests = unifi_client::instance().guests().list().send().await?;
+    println!("Guests: {:?}", guests);
+
     Ok(())
 }
 ```
 
-## Detailed Documentation
+## Creating Multiple Clients (Advanced)
 
-### Authentication
+If you need to connect to *multiple* UniFi Controllers, or you need different client configurations
+within the same application, create independent client instances using `UniFiClient::builder()`
+*without* calling `initialize()`:
 
 ```rust
-// With password prompt
-client.login(None).await?;
+use unifi_client::{UniFiClient, UniFiError};
 
-// With explicit password
-client.login(Some("my-password".to_string())).await?;
+#[tokio::main]
+async fn main() -> Result<(), UniFiError> {
+    let client1 = UniFiClient::builder()
+        .controller_url("https://controller1.example.com:8443")
+        .username("user1")
+        .password("password1")
+        .build()
+        .await?;
+
+    let client2 = UniFiClient::builder()
+        .controller_url("https://controller2.example.com:8443")
+        .username("user2")
+        .password("password2")
+        .build()
+        .await?;
+
+    // Use client1 and client2 independently.
+    let guests1 = client1.guests().list().send().await?;
+    let guests2 = client2.guests().list().send().await?;
+
+    println!("Guests on controller 1: {:?}", guests1);
+    println!("Guests on controller 2: {:?}", guests2);
+
+   Ok(())
+}
 ```
 
-### Voucher Management
+## API Overview
+
+### Guest Management
+
+`unifi-client` uses a builder pattern for constructing API requests.
 
 ```rust
-// Get the voucher API
-let voucher_api = client.vouchers();
+use unifi_client::{UniFiClient, UniFiError};
 
-// Create vouchers
-let new_vouchers = voucher_api.create(
-    10,                           // count
-    1440,                         // duration (minutes)
-    Some("Conference".to_string()),  // note
-    Some(10000),                  // up limit (Kbps)
-    Some(20000),                  // down limit (Kbps)
-    Some(1024),                   // data quota (MB)
-).await?;
+#[tokio::main]
+async fn main() -> Result<(), UniFiError> {
+    let client = UniFiClient::builder()
+        .controller_url("https://your-controller:8443")
+        .username("your_username")
+        .password_from_env("UNIFI_PASSWORD")
+        .build()
+        .await?;
+    unifi_client::initialize(client);
+    
+    let unifi_client = unifi_client::instance();
 
-// List all vouchers
-let all_vouchers = voucher_api.list().await?;
+    // Authorize a guest:
+    let new_guest = unifi_client.guests()
+        .authorize("00:11:22:33:44:55")
+        .duration(60)
+        .up(1024)
+        .down(2048)
+        .data_quota(1024)
+        .send() // *MUST* call .send()
+        .await?;
 
-// Delete a specific voucher
-voucher_api.delete(&voucher_id).await?;
+    println!("Authorized Guest: {:?}", new_guest);
 
-// Delete all vouchers
-voucher_api.delete_all().await?;
+    // List guests (with optional filtering):
+    let guests = unifi_client.guests().list().within(24).send().await?;
+
+    // Unauthorize a guest:
+    unifi_client.guests().unauthorize("00:11:22:33:44:55").send().await?;
+
+    //Unathorize all guests
+    unifi_client.guests().unauthorize_all().send().await?;
+    Ok(())
+}
 ```
 
 ## Error Handling
 
-The library uses a custom error type for all operations:
+All API methods return a `Result<T, UniFiError>`.
 
 ```rust
-match client.login(None).await {
-    Ok(_) => println!("Login successful!"),
-    Err(UniFiError::AuthenticationError(msg)) => {
-        eprintln!("Authentication failed: {}", msg);
-    },
-    Err(err) => eprintln!("Error: {}", err),
+use unifi_client::{UniFiClient, UniFiError};
+
+#[tokio::main]
+async fn main() -> Result<(), UniFiError> {
+    let client = UniFiClient::builder()
+        .controller_url("https://your-controller:8443")
+        .username("your_username")
+        .password_from_env("UNIFI_PASSWORD")
+        .build()
+        .await?;
+    unifi_client::initialize(client);
+    
+    let result = unifi_client::instance().guests().list().send().await;
+    
+    match result {
+       Ok(guests) => println!("Guests: {:?}", guests),
+       Err(UniFiError::ApiError(msg)) => eprintln!("API Error: {}", msg),
+       Err(UniFiError::AuthenticationError(msg)) => eprintln!("Auth Error: {}", msg),
+       Err(e) => eprintln!("Other Error: {:?}", e),
+    }
+    Ok(())
 }
 ```
 
 ## Advanced Usage
 
-### Custom HTTP Configuration
+### Custom HTTP Client
 
 ```rust
-let config = ClientConfig::builder()
-    .controller_url("https://unifi.example.com:8443")
-    .username("admin")
-    .site("default")
-    .verify_ssl(false)
-    .timeout(std::time::Duration::from_secs(30))
-    .user_agent("My UniFi Client")
-    .build()?;
+use unifi_client::{UniFiClient, UniFiClientBuilder};
+use reqwest::Client as ReqwestClient;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let custom_http_client = ReqwestClient::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()?;
+
+    let client = UniFiClient::builder()
+        .controller_url("https://your-controller:8443")
+        .username("your_username")
+        .password_from_env("UNIFI_PASSWORD")
+        .http_client(custom_http_client)
+        .build()
+        .await?;
+    Ok(())
+}
 ```
 
 ## Planned Features
