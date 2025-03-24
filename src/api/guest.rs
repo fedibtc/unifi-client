@@ -49,10 +49,10 @@ impl GuestHandler {
     /// let guest = client
     ///     .guests()
     ///     .authorize("00:11:22:33:44:55") // MAC address of the guest
-    ///     .duration(60) // 60 minutes
-    ///     .up(1024) // 1 Mbps upload
-    ///     .down(2048) // 2 Mbps download
-    ///     .data_quota(1024) // 1 GB limit
+    ///     .duration_minutes(60) // 60 minutes
+    ///     .upload_speed_limit_kbps(1024) // 1 Mbps upload
+    ///     .download_speed_limit_kbps(2048) // 2 Mbps download
+    ///     .data_quota_megabytes(1024) // 1 GB limit
     ///     .send() // Send the request
     ///     .await?;
     ///
@@ -145,69 +145,90 @@ impl GuestHandler {
 
 #[derive(Debug, Clone)]
 pub struct AuthorizeGuestBuilder {
-    client: UniFiClient,
-    mac: String,
-    duration: Option<u32>,
-    up: Option<u32>,
-    down: Option<u32>,
-    data_quota: Option<u64>,
-    ap_mac: Option<String>,
+    unifi_client: UniFiClient,
+    client_mac_address: String,
+    duration_minutes: Option<u32>,
+    upload_speed_limit_kbps: Option<u32>,
+    download_speed_limit_kbps: Option<u32>,
+    data_quota_megabytes: Option<u64>,
+    access_point_mac_address: String,
+    captive_portal_timestamp: i64,
+    requested_url: Option<String>,
+    wifi_network: String,
 }
 
 impl AuthorizeGuestBuilder {
-    pub(crate) fn new(client: UniFiClient, mac: String) -> Self {
+    pub(crate) fn new(unifi_client: UniFiClient, client_mac_address: String) -> Self {
         Self {
-            client,
-            mac,
-            duration: None,
-            up: None,
-            down: None,
-            data_quota: None,
-            ap_mac: None,
+            unifi_client,
+            client_mac_address,
+            duration_minutes: None,
+            upload_speed_limit_kbps: None,
+            download_speed_limit_kbps: None,
+            data_quota_megabytes: None,
+            access_point_mac_address: "00:00:00:00:00:00".to_string(),
+            captive_portal_timestamp: 0,
+            requested_url: None,
+            wifi_network: "".to_string(),
         }
     }
 
-    pub fn duration(mut self, duration: u32) -> Self {
-        self.duration = Some(duration);
+    pub fn duration_minutes(mut self, duration_minutes: u32) -> Self {
+        self.duration_minutes = Some(duration_minutes);
         self
     }
 
-    pub fn up(mut self, up: u32) -> Self {
-        self.up = Some(up);
+    pub fn upload_speed_limit_kbps(mut self, upload_speed_limit_kbps: u32) -> Self {
+        self.upload_speed_limit_kbps = Some(upload_speed_limit_kbps);
         self
     }
 
-    pub fn down(mut self, down: u32) -> Self {
-        self.down = Some(down);
+    pub fn download_speed_limit_kbps(mut self, download_speed_limit_kbps: u32) -> Self {
+        self.download_speed_limit_kbps = Some(download_speed_limit_kbps);
         self
     }
 
-    pub fn data_quota(mut self, data_quota: u64) -> Self {
-        self.data_quota = Some(data_quota);
+    pub fn data_quota_megabytes(mut self, data_quota_megabytes: u64) -> Self {
+        self.data_quota_megabytes = Some(data_quota_megabytes);
         self
     }
 
-    pub fn ap_mac(mut self, ap_mac: impl Into<String>) -> Self {
-        self.ap_mac = Some(ap_mac.into());
+    pub fn access_point_mac_address(mut self, access_point_mac_address: impl Into<String>) -> Self {
+        self.access_point_mac_address = access_point_mac_address.into();
+        self
+    }
+
+    pub fn captive_portal_timestamp(mut self, captive_portal_timestamp: i64) -> Self {
+        self.captive_portal_timestamp = captive_portal_timestamp;
+        self
+    }
+
+    pub fn requested_url(mut self, requested_url: impl Into<String>) -> Self {
+        self.requested_url = Some(requested_url.into());
+        self
+    }
+
+    pub fn wifi_network(mut self, wifi_network: impl Into<String>) -> Self {
+        self.wifi_network = wifi_network.into();
         self
     }
 
     pub async fn send(self) -> UniFiResult<models::guest::GuestEntry> {
-        let site = self.client.site();
+        let site = self.unifi_client.site();
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
 
         let request = models::guest::AuthorizeGuestRequest {
             cmd: "authorize-guest".to_string(),
-            mac: self.mac,
-            minutes: self.duration,
-            up: self.up,
-            down: self.down,
-            bytes: self.data_quota,
-            ap_mac: self.ap_mac,
+            mac: self.client_mac_address,
+            minutes: self.duration_minutes,
+            up: self.upload_speed_limit_kbps,
+            down: self.download_speed_limit_kbps,
+            bytes: self.data_quota_megabytes,
+            ap_mac: self.access_point_mac_address,
         };
 
         let response: Vec<models::guest::GuestEntry> =
-            self.client.request(Method::POST, &endpoint, Some(request)).await?;
+            self.unifi_client.request(Method::POST, &endpoint, Some(request)).await?;
 
         response
             .into_iter()

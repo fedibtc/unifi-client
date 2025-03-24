@@ -12,7 +12,7 @@ use unifi_client::UniFiError;
 async fn test_authorize_guest() {
     let mock_server = MockServer::start().await;
 
-    let duration = 30;
+    let duration_minutes = 30;
     
     // Set up authentication mock
     Mock::given(method("POST"))
@@ -37,7 +37,8 @@ async fn test_authorize_guest() {
         .and(body_json(json!({
             "cmd": "authorize-guest",
             "mac": "00:11:22:33:44:55",
-            "minutes": duration
+            "minutes": duration_minutes,
+            "ap_mac": "00:00:00:00:00:00",
         })))
         .respond_with(ResponseTemplate::new(200)
             .set_body_json(json!({
@@ -59,7 +60,7 @@ async fn test_authorize_guest() {
     
    let guest = unifi_client.guests()
       .authorize("00:11:22:33:44:55")
-      .duration(duration)
+      .duration_minutes(duration_minutes)
       .send()
       .await
       .unwrap();
@@ -68,7 +69,7 @@ async fn test_authorize_guest() {
         GuestEntry::Inactive { expired, mac, start, end,.. } => {
             assert_eq!(mac, "00:11:22:33:44:55");
             assert!(!expired);
-            assert!(end - start == duration as i64 * 60);
+            assert!(end - start == duration_minutes as i64 * 60);
         },
         _ => panic!("Expected Inactive guest entry"),
     }

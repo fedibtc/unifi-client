@@ -133,10 +133,10 @@ async fn main() -> Result<(), UniFiError> {
     // Authorize a guest:
     let new_guest = unifi_client.guests()
         .authorize("00:11:22:33:44:55")
-        .duration(60)
+        .duration_minutes(60)
         .up(1024)
         .down(2048)
-        .data_quota(1024)
+        .data_quota_megabytes(1024)
         .send() // *MUST* call .send()
         .await?;
 

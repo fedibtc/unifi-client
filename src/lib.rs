@@ -25,7 +25,7 @@
 //!
 //! ### Examples
 //!
-//! ### Authorizing a guest
+//! #### Authorizing a guest
 //!
 //! ```no_run
 //! # use unifi_client::UniFiClient;
@@ -43,8 +43,8 @@
 //! let new_guest = unifi_client
 //!     .guests()
 //!     .authorize("00:11:22:33:44:55") // Required MAC address
-//!     .duration(60) // Optional:  60 minutes
-//!     .data_quota(10) // Optional:  10 MB quota
+//!     .duration_minutes(60) // Optional:  60 minutes
+//!     .data_quota_megabytes(10) // Optional:  10 MB quota
 //!     .send()
 //!     .await?;
 //!
