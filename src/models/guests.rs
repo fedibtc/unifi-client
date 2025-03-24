@@ -30,8 +30,7 @@ pub struct AuthorizeGuestRequest {
 /// This enum represents different states of a guest authorization in the UniFi
 /// system. It can be in one of three states:
 /// - Active: Guest is authorized and currently connected
-/// - Inactive: Guest authorization exists but is not currently in use or has
-///   expired
+/// - Inactive: Guest authorization exists but is not currently in use or has expired
 /// - New: Guest has just been authorized through the API
 ///
 /// Fields used by all guest entries:

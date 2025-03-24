@@ -24,8 +24,7 @@ impl<'a> SiteApi<'a> {
     ///
     /// # Arguments
     ///
-    /// * `client` - Reference to the UniFi client that will be used for API
-    ///   requests
+    /// * `client` - Reference to the UniFi client that will be used for API requests
     pub(crate) fn new(client: &'a UniFiClient) -> Self {
         Self { client }
     }

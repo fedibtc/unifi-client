@@ -19,8 +19,7 @@ impl GuestHandler {
     ///
     /// # Arguments
     ///
-    /// * `client` - Reference to the UniFi client that will be used for API
-    ///   requests
+    /// * `client` - Reference to the UniFi client that will be used for API requests
     pub(crate) fn new(client: UniFiClient) -> Self {
         Self { client }
     }
