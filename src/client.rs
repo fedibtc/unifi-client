@@ -189,6 +189,46 @@ pub struct UniFiClient {
     auth_state: Arc<Mutex<Option<AuthState>>>,
 }
 
+impl fmt::Debug for UniFiClient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let auth_state_locked = self.auth_state.try_lock().unwrap();
+
+        f.debug_struct("UniFiClient")
+            .field("controller_url", &self.controller_url)
+            .field("username", &self.username)
+            .field("site", &self.site)
+            .field("verify_ssl", &self.verify_ssl)
+            .field("timeout", &self.timeout)
+            .field("user_agent", &self.user_agent)
+            .field("auth_state", &auth_state_locked.is_some())
+            .finish()
+    }
+}
+
+impl Clone for UniFiClient {
+    fn clone(&self) -> Self {
+        UniFiClient {
+            controller_url: self.controller_url.clone(),
+            username: self.username.clone(),
+            password: self.password.clone(),
+            site: self.site.clone(),
+            verify_ssl: self.verify_ssl,
+            timeout: self.timeout,
+            user_agent: self.user_agent.clone(),
+            http_client: self.http_client.clone(),
+            auth_state: self.auth_state.clone(),
+        }
+    }
+}
+
+/// Defaults for UniFiClient:
+/// - `controller_url`: `https://localhost:8443`
+/// - `username`: `admin`
+/// - `password`: `admin`
+/// - `site`: `default`
+/// - `verify_ssl`: `false`
+/// - `timeout`: `30 seconds`
+/// - `http_client`: http client with the `unifi-client` user agent
 impl Default for UniFiClient {
     fn default() -> Self {
         UniFiClient {
@@ -202,22 +242,6 @@ impl Default for UniFiClient {
             http_client: reqwest::Client::new(),
             auth_state: Arc::new(Mutex::new(None)),
         }
-    }
-}
-
-impl fmt::Debug for UniFiClient {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let auth_state_locked = self.auth_state.blocking_lock();
-
-        f.debug_struct("UniFiClient")
-            .field("controller_url", &self.controller_url)
-            .field("username", &self.username)
-            .field("site", &self.site)
-            .field("verify_ssl", &self.verify_ssl)
-            .field("timeout", &self.timeout)
-            .field("user_agent", &self.user_agent)
-            .field("auth_state", &auth_state_locked.is_some())
-            .finish()
     }
 }
 
@@ -493,21 +517,4 @@ impl UniFiClient {
     // pub fn vouchers(&self) -> VoucherApi {
     //     VoucherApi::new(self)
     // }
-}
-
-// Implement Clone for UniFiClient
-impl Clone for UniFiClient {
-    fn clone(&self) -> Self {
-        UniFiClient {
-            controller_url: self.controller_url.clone(),
-            username: self.username.clone(),
-            password: self.password.clone(),
-            site: self.site.clone(),
-            verify_ssl: self.verify_ssl,
-            timeout: self.timeout,
-            user_agent: self.user_agent.clone(),
-            http_client: self.http_client.clone(),
-            auth_state: self.auth_state.clone(),
-        }
-    }
 }
