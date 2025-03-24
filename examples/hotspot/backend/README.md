@@ -65,14 +65,10 @@ Request body:
 Response:
 ```json
 {
-  "mac": "00:11:22:33:44:55",
-  "data_quota": 512,
   "expires_at": 1742673091,
   "guest_id": "67ddb99d01f8891b33c1ad97"
 }
 ```
 
-- `mac`: The MAC address of the authorized device 
-- `data_quota`: Optional data transfer limit in MB (null if no limit set)
 - `expires_at`: Unix timestamp (in seconds) when the authorization expires
 - `guest_id`: Unique identifier assigned by UniFi for this guest authorization

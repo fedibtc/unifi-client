@@ -1,5 +1,6 @@
 use std::fmt;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -11,12 +12,12 @@ use dotenv::dotenv;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use unifi_client::{ClientConfig, GuestConfig, GuestEntry, UniFiClient};
 use validator::{Validate, ValidateArgs, ValidationError};
+
+use unifi_client::{models, UniFiClient};
 
 // Context struct for validation limits
 #[derive(Clone)]
@@ -112,10 +113,8 @@ static MAC_ADDRESS_REGEX: Lazy<Regex> =
 
 #[derive(Serialize)]
 struct GuestAuthResponse {
-    data_quota: Option<u64>,
     expires_at: i64,
     guest_id: String,
-    mac: String,
 }
 
 // Configuration struct
@@ -166,13 +165,13 @@ impl fmt::Debug for AppConfig {
 #[derive(Clone)]
 struct AppState {
     config: AppConfig,
-    unifi_client: std::sync::Arc<Mutex<UniFiClient>>,
+    unifi_client: Arc<UniFiClient>,
 }
 
 async fn authorize_guest(
     State(state): State<AppState>,
     Json(payload): Json<GuestAuthRequest>,
-) -> Result<Json<GuestAuthResponse>, (StatusCode, String)> {
+) -> Result<(StatusCode, Json<GuestAuthResponse>), (StatusCode, String)> {
     // Create validation context with limits from config
     let validation_limits = ValidationLimits {
         max_duration_minutes: state.config.max_duration_minutes,
@@ -187,30 +186,27 @@ async fn authorize_guest(
         ));
     }
 
-    // Build the guest config.
-    let mut config_builder = GuestConfig::builder().mac(&payload.client_mac_address);
-    if let Some(duration) = payload.duration_minutes {
-        config_builder = config_builder.duration(duration);
-    }
-    if let Some(quota) = payload.data_quota_megabytes {
-        config_builder = config_builder.data_quota(quota);
-    }
-    let guest_config = config_builder
-        .build()
-        .map_err(|e| {
-            tracing::error!("Failed to build guest config: {:?}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to build guest config: {}", e),
-            )
-        })
-        .unwrap();
-
     // Authorize the guest.
-    let client = state.unifi_client.lock().await;
-    let guest_entry = client
+    let mut auth_builder = state.unifi_client
         .guests()
-        .authorize(guest_config)
+        .authorize(payload.client_mac_address)
+        .access_point_mac_address(payload.access_point_mac_address)
+        .captive_portal_timestamp(payload.captive_portal_timestamp)
+        .requested_url(payload.requested_url)
+        .wifi_network(payload.wifi_network);
+
+    // Conditionally set duration if provided.
+    if let Some(duration) = payload.duration_minutes {
+        auth_builder = auth_builder.duration_minutes(duration);
+    }
+    // Conditionally set data quota if provided.
+    if let Some(data_quota) = payload.data_quota_megabytes {
+        auth_builder = auth_builder.data_quota_megabytes(data_quota);
+    }
+
+    // Execute the request.
+    let guest_entry = auth_builder
+        .send()
         .await
         .map_err(|e| {
             tracing::error!("Failed to authorize guest: {:?}", e);
@@ -218,12 +214,11 @@ async fn authorize_guest(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Failed to authorize guest: {}", e),
             )
-        })
-        .unwrap();
+        })?;
 
     // Return guest authorization response.
     match guest_entry {
-        GuestEntry::New { id, end, mac, .. } => {
+        models::guest::GuestEntry::New { id, end, mac, .. } => {
             let expiration_time = DateTime::<Utc>::from_timestamp(end, 0).unwrap_or_default();
 
             let quota_info = if let Some(quota) = payload.data_quota_megabytes {
@@ -239,12 +234,13 @@ async fn authorize_guest(
                 quota_info
             );
 
-            Ok(Json(GuestAuthResponse {
-                data_quota: payload.data_quota_megabytes,
-                expires_at: end,
-                guest_id: id,
-                mac,
-            }))
+            Ok((
+                StatusCode::CREATED,
+                Json(GuestAuthResponse {
+                    expires_at: end,
+                    guest_id: id,
+                }),
+            ))
         }
         unexpected => {
             tracing::error!("Unexpected guest entry type: {:?}", unexpected);
@@ -273,33 +269,23 @@ async fn main() {
         config
     );
 
-    // Build the UniFi client configuration.
-    let unifi_client_config = ClientConfig::builder()
+    // Create and initialize the UniFi client.
+    let unifi_client = UniFiClient::builder()
         .controller_url(&config.unifi_controller_url)
         .username(&config.unifi_username)
-        .password(&config.unifi_password)
+        .password(config.unifi_password.clone())  // Clone the password here
         .site(&config.unifi_site)
         .verify_ssl(config.verify_ssl)
         .build()
-        .expect("Failed to build UniFi client configuration");
-
-    tracing::info!(
-        "Initializing UniFi client with configuration: {:?}",
-        unifi_client_config
-    );
-    let mut unifi_client = UniFiClient::new(unifi_client_config);
-
-    // Login to the UniFi controller.
-    unifi_client
-        .login(None)
         .await
-        .expect("Failed to authenticate with UniFi controller");
-    tracing::info!("Authentication successful!");
+        .expect("Failed to build UniFiClient");
+    unifi_client::initialize(unifi_client);
+    tracing::info!("UniFi client initialized successfully!");
 
     // Create shared state with the authenticated UniFi client and session store.
     let state = AppState {
         config: config.clone(),
-        unifi_client: std::sync::Arc::new(Mutex::new(unifi_client)),
+        unifi_client: unifi_client::instance()
     };
 
     // CORS configuration
