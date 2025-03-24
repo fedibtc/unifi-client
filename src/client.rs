@@ -115,24 +115,26 @@ impl UniFiClientBuilder {
         let site = self.site.unwrap_or_else(|| "default".to_string());
 
         let timeout = self.timeout.unwrap_or(Duration::from_secs(30));
-        
-        let password = self.password.ok_or_else(|| {
-            UniFiError::ConfigurationError("Password is required".into())
-        })?;
-        
-        let username = self.username.ok_or_else(|| {
-            UniFiError::ConfigurationError("Username is required".into())
-        })?;
 
-        let controller_url = self.controller_url.ok_or_else(||
-            UniFiError::ConfigurationError("Controller URL is required".into()))
+        let password = self
+            .password
+            .ok_or_else(|| UniFiError::ConfigurationError("Password is required".into()))?;
+
+        let username = self
+            .username
+            .ok_or_else(|| UniFiError::ConfigurationError("Username is required".into()))?;
+
+        let controller_url = self
+            .controller_url
+            .ok_or_else(|| UniFiError::ConfigurationError("Controller URL is required".into()))
             .and_then(|url_str| {
                 Url::parse(&url_str).map_err(|e| {
                     UniFiError::ConfigurationError(format!("Invalid controller URL: {e}"))
                 })
             })?;
 
-        let user_agent = self.user_agent
+        let user_agent = self
+            .user_agent
             .as_deref()
             .unwrap_or(concat!("unifi-client/", env!("CARGO_PKG_VERSION")));
 
@@ -173,10 +175,10 @@ struct AuthState {
     csrf_token: Option<String>,
 }
 
-/// The main UniFi client for interacting with the UniFi Controller API.
+/// The UniFi client for interacting with the UniFi Controller API.
 ///
 /// This client manages authentication, request handling, and provides access
-/// to the various API endpoints through dedicated API objects.
+/// to the various API endpoints through dedicated API handlers.
 pub struct UniFiClient {
     controller_url: Url,
     username: String,
@@ -232,7 +234,8 @@ impl Clone for UniFiClient {
 impl Default for UniFiClient {
     fn default() -> Self {
         UniFiClient {
-            controller_url: Url::parse("https://localhost:8443").expect("Failed to parse default URL"),
+            controller_url: Url::parse("https://localhost:8443")
+                .expect("Failed to parse default URL"),
             username: "admin".to_string(),
             password: Some("admin".to_string()),
             site: "default".to_string(),
@@ -245,11 +248,28 @@ impl Default for UniFiClient {
     }
 }
 
+/// # Constructors
 impl UniFiClient {
     pub fn builder() -> UniFiClientBuilder {
         UniFiClientBuilder::default()
     }
+}
 
+/// # UniFiAPI Handlers
+impl UniFiClient {
+    /// Gets the current site ID.
+    pub fn site(&self) -> &str {
+        &self.site
+    }
+
+    /// Creates a new [`guests::GuestHandler`] for accessing information from UniFi's Guest API.
+    pub fn guests(&self) -> guests::GuestHandler {
+        guests::GuestHandler::new(self.clone())
+    }
+}
+
+/// # UniFi Authentication Methods
+impl UniFiClient {
     async fn login(&self) -> UniFiResult<()> {
         let password = match &self.password {
             Some(pwd) => pwd.clone(),
@@ -360,7 +380,20 @@ impl UniFiClient {
 
         Ok(headers)
     }
+}
 
+/// # HTTP Methods
+/// A collection of different of HTTP methods to use with UniFiClient's
+/// configuration (Authenication, etc.). All of the HTTP methods (`get`, `post`,
+/// etc.) perform some amount of pre-processing such as making relative urls
+/// absolute, and post processing such as mapping any potential UniFi errors
+/// into `Err()` variants, and deserializing the response body.
+///
+/// This isn't always ideal when working with UniFi's API and as such there are
+/// additional methods available prefixed with `_` (e.g.  `_get`, `_post`,
+/// etc.) that perform no pre or post processing and directly return the
+/// `http::Response` struct.
+impl UniFiClient {
     /// Makes a raw request to the UniFi API.
     ///
     /// # Warning
@@ -371,8 +404,7 @@ impl UniFiClient {
     /// # Arguments
     ///
     /// * `method` - The HTTP method to use (e.g., "GET", "POST").
-    /// * `endpoint` - The API endpoint path (e.g.,
-    ///   "/api/s/default/stat/sysinfo").
+    /// * `endpoint` - The API endpoint path (e.g., "/api/s/default/stat/sysinfo").
     /// * `body` - Optional request body (must implement `Serialize`).
     ///
     /// # Errors
@@ -497,24 +529,4 @@ impl UniFiClient {
             None => Err(UniFiError::ApiError("No data returned from API".into())),
         }
     }
-
-    /// Gets the current site ID.
-    pub fn site(&self) -> &str {
-        &self.site
-    }
-
-    /// Gets the guest API interface.
-    pub fn guests(&self) -> guest::GuestHandler {
-        guest::GuestHandler::new(self.clone())
-    }
-
-    // /// Gets the site API interface.
-    // pub fn sites(&self) -> SiteApi {
-    //     SiteApi::new(self)
-    // }
-
-    // /// Gets the voucher API interface.
-    // pub fn vouchers(&self) -> VoucherApi {
-    //     VoucherApi::new(self)
-    // }
 }
