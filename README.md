@@ -5,14 +5,13 @@
 <!-- [![License](https://img.shields.io/crates/l/unifi-client.svg)](./LICENSE) -->
 <!-- [![CI](https://github.com/fedibtc/unifi-client/workflows/CI/badge.svg)](https://github.com/fedibtc/unifi-client/actions) -->
 
-A Rust client library for the Ubiquiti UniFi Controller API. This crate provides
-a type-safe, async interface for interacting with UniFi controllers, allowing you
-to manage guests, sites, and more.
+UniFiClient is a third party Ubiquiti UniFi API client, allowing you to easily build your own UniFi
+integrations in Rust. UniFiClient comes with two primary sets of APIs for communicating with UniFi
+controllers, a high level strongly typed semantic API, and a lower level HTTP API for extending
+behaviour.
 
 > **Note:** This crate is not officially associated with or endorsed by Ubiquiti
 > Inc.
-
-## Features
 
 ## Features
 
@@ -26,12 +25,10 @@ to manage guests, sites, and more.
 
 ## Installation
 
-Add `unifi-client` to your `Cargo.toml`:
+Run this command in your terminal to add the latest version of UniFiClient.
 
-```toml
-[dependencies]
-unifi-client = "0.1.0"  # Replace with the actual version
-tokio = { version = "1", features = ["full"] }
+```bash
+cargo add unifi-client
 ```
 
 ## Quick Start
@@ -102,9 +99,21 @@ async fn main() -> Result<(), UniFiError> {
 
 ## API Overview
 
-### Guest Management
+### Semantic API
+
+The semantic API is a high level API that provides a type-safe way to
+interact with the UniFi controller. It is built around a set of `models`
+that map to the UniFi controller's API. Currently the following modules are
+available.
+
+- `guest` - Guest access management.
+
+#### Authorizing a guest
 
 `unifi-client` uses a builder pattern for constructing API requests.
+
+All methods with multiple optional parameters are built as Builder structs, allowing you to easily
+specify parameters.
 
 ```rust
 use unifi_client::{UniFiClient, UniFiError};
