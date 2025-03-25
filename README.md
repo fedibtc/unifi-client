@@ -61,42 +61,6 @@ async fn main() -> Result<(), UniFiError> {
 }
 ```
 
-## Creating Multiple Clients (Advanced)
-
-If you need to connect to *multiple* UniFi Controllers, or you need different client configurations
-within the same application, create independent client instances using `UniFiClient::builder()`
-*without* calling `initialize()`:
-
-```rust
-use unifi_client::{UniFiClient, UniFiError};
-
-#[tokio::main]
-async fn main() -> Result<(), UniFiError> {
-    let client1 = UniFiClient::builder()
-        .controller_url("https://controller1.example.com:8443")
-        .username("user1")
-        .password("password1")
-        .build()
-        .await?;
-
-    let client2 = UniFiClient::builder()
-        .controller_url("https://controller2.example.com:8443")
-        .username("user2")
-        .password("password2")
-        .build()
-        .await?;
-
-    // Use client1 and client2 independently.
-    let guests1 = client1.guests().list().send().await?;
-    let guests2 = client2.guests().list().send().await?;
-
-    println!("Guests on controller 1: {:?}", guests1);
-    println!("Guests on controller 2: {:?}", guests2);
-
-   Ok(())
-}
-```
-
 ## API Overview
 
 ### Semantic API
@@ -184,6 +148,65 @@ async fn main() -> Result<(), UniFiError> {
 ```
 
 ## Advanced Usage
+
+### Builder vs. Singleton: Choosing the Right Approach
+
+UniFiClient supports two patterns for client creation and access:
+
+- **Builder (`UniFiClient::builder()`):**  
+  Create new, independent client instances with custom configurations.  
+  **Use when:**
+  - Connecting to multiple controllers in a single application.
+  - Writing tests (e.g., with wiremock) or needing isolated configurations.
+  - Spinning up short-lived clients for specific tasks.
+
+- **Singleton (`initialize()` / `instance()`):**  
+  Set up a global client for simplified, centralized access.  
+  **Use when:**
+  - Your app interacts with a single UniFi controller.
+  - You want to avoid passing client instances around.
+  - A uniform configuration is needed throughout your codebase.
+
+**Best Practices:**
+- **Single Controller:** Call `initialize()` early (typically in `main`) and use `instance()` anywhere else.
+- **Multiple or Custom Instances:** Use the builder to create each client independently.
+- If `initialize()` isn’t called, any singleton usage should gracefully return a configuration error.
+
+### Creating Multiple Clients
+
+If you need to connect to *multiple* UniFi Controllers, or you need different client configurations
+within the same application, create independent client instances using `UniFiClient::builder()`
+*without* calling `initialize()`:
+
+```rust
+use unifi_client::{UniFiClient, UniFiError};
+
+#[tokio::main]
+async fn main() -> Result<(), UniFiError> {
+    let client1 = UniFiClient::builder()
+        .controller_url("https://controller1.example.com:8443")
+        .username("user1")
+        .password("password1")
+        .build()
+        .await?;
+
+    let client2 = UniFiClient::builder()
+        .controller_url("https://controller2.example.com:8443")
+        .username("user2")
+        .password("password2")
+        .build()
+        .await?;
+
+    // Use client1 and client2 independently.
+    let guests1 = client1.guests().list().send().await?;
+    let guests2 = client2.guests().list().send().await?;
+
+    println!("Guests on controller 1: {:?}", guests1);
+    println!("Guests on controller 2: {:?}", guests2);
+
+   Ok(())
+}
+```
 
 ### Custom HTTP Client
 
