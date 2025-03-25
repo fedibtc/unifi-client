@@ -122,7 +122,6 @@ struct GuestAuthResponse {
 struct AppConfig {
     unifi_controller_url: String,
     unifi_username: String,
-    unifi_password: String,
     unifi_site: String,
     verify_ssl: bool,
     port: u16,
@@ -151,7 +150,6 @@ impl fmt::Debug for AppConfig {
         f.debug_struct("AppConfig")
             .field("unifi_controller_url", &self.unifi_controller_url)
             .field("unifi_username", &self.unifi_username)
-            .field("unifi_password", &"******") // Mask password
             .field("unifi_site", &self.unifi_site)
             .field("verify_ssl", &self.verify_ssl)
             .field("port", &self.port)
@@ -199,6 +197,7 @@ async fn authorize_guest(
     if let Some(duration) = payload.duration_minutes {
         auth_builder = auth_builder.duration_minutes(duration);
     }
+    
     // Conditionally set data quota if provided.
     if let Some(data_quota) = payload.data_quota_megabytes {
         auth_builder = auth_builder.data_quota_megabytes(data_quota);
@@ -273,7 +272,7 @@ async fn main() {
     let unifi_client = UniFiClient::builder()
         .controller_url(&config.unifi_controller_url)
         .username(&config.unifi_username)
-        .password(config.unifi_password.clone())  // Clone the password here
+        .password_from_env("UNIFI_PASSWORD")
         .site(&config.unifi_site)
         .verify_ssl(config.verify_ssl)
         .build()
