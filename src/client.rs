@@ -6,6 +6,7 @@ use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, COOKIE};
 use reqwest::{Client as ReqwestClient, Method, StatusCode};
+use secrecy::{ExposeSecret, SecretString};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
@@ -45,7 +46,7 @@ pub fn instance() -> Arc<UniFiClient> {
 pub struct UniFiClientBuilder {
     controller_url: Option<String>,
     username: Option<String>,
-    password: Option<String>,
+    password: Option<SecretString>,
     site: Option<String>,
     verify_ssl: bool,
     timeout: Option<Duration>,
@@ -68,7 +69,7 @@ impl UniFiClientBuilder {
 
     /// Sets the password for authentication.
     pub fn password(mut self, password: impl Into<String>) -> Self {
-        self.password = Some(password.into());
+        self.password = Some(SecretString::from(password.into()));
         self
     }
 
@@ -77,7 +78,7 @@ impl UniFiClientBuilder {
         let password = std::env::var(var_name)
             .map_err(|e| format!("Failed to read environment variable '{}': {}", var_name, e))
             .expect("Failed to set password from environment");
-        self.password = Some(password);
+        self.password = Some(SecretString::from(password));
         self
     }
 
@@ -182,7 +183,7 @@ struct AuthState {
 pub struct UniFiClient {
     controller_url: Url,
     username: String,
-    password: Option<String>,
+    password: Option<SecretString>,
     site: String,
     verify_ssl: bool,
     timeout: Duration,
@@ -198,6 +199,7 @@ impl fmt::Debug for UniFiClient {
         f.debug_struct("UniFiClient")
             .field("controller_url", &self.controller_url)
             .field("username", &self.username)
+            .field("password", &self.password)
             .field("site", &self.site)
             .field("verify_ssl", &self.verify_ssl)
             .field("timeout", &self.timeout)
@@ -237,7 +239,7 @@ impl Default for UniFiClient {
             controller_url: Url::parse("https://localhost:8443")
                 .expect("Failed to parse default URL"),
             username: "admin".to_string(),
-            password: Some("admin".to_string()),
+            password: Some(SecretString::from("admin")),
             site: "default".to_string(),
             verify_ssl: false,
             timeout: Duration::from_secs(30),
@@ -272,7 +274,7 @@ impl UniFiClient {
 impl UniFiClient {
     async fn login(&self) -> UniFiResult<()> {
         let password = match &self.password {
-            Some(pwd) => pwd.clone(),
+            Some(pwd) => pwd.expose_secret().to_string(),
             None => {
                 return Err(UniFiError::AuthenticationError(
                     "No password provided for authentication".into(),
