@@ -172,8 +172,8 @@ impl UniFiClientBuilder {
 /// Authentication state for the client.
 #[derive(Clone, Debug)]
 struct AuthState {
-    cookies: String,
-    csrf_token: Option<String>,
+    cookies: SecretString,
+    csrf_token: Option<SecretString>,
 }
 
 /// The UniFi client for interacting with the UniFi Controller API.
@@ -324,8 +324,8 @@ impl UniFiClient {
 
         let mut auth_state = self.auth_state.lock().await;
         *auth_state = Some(AuthState {
-            cookies: cookie_header,
-            csrf_token,
+            cookies: SecretString::from(cookie_header),
+            csrf_token: csrf_token.map(|token| SecretString::from(token)),
         });
 
         Ok(())
@@ -366,18 +366,16 @@ impl UniFiClient {
         let auth_state = auth_state.as_ref().ok_or(UniFiError::NotAuthenticated)?;
 
         let mut headers = HeaderMap::new();
-        headers.insert(
-            COOKIE,
-            HeaderValue::from_str(&auth_state.cookies)
-                .map_err(|e| UniFiError::ApiError(format!("Invalid cookie header: {}", e)))?,
-        );
+        let mut cookie = HeaderValue::from_str(auth_state.cookies.expose_secret())
+            .map_err(|e| UniFiError::ApiError(format!("Invalid cookie header: {}", e)))?;
+        cookie.set_sensitive(true);
+        headers.insert(COOKIE, cookie);
 
         if let Some(token) = &auth_state.csrf_token {
-            headers.insert(
-                "x-csrf-token",
-                HeaderValue::from_str(token)
-                    .map_err(|e| UniFiError::ApiError(format!("Invalid CSRF token: {}", e)))?,
-            );
+            let mut csrf_token = HeaderValue::from_str(token.expose_secret())
+                .map_err(|e| UniFiError::ApiError(format!("Invalid CSRF token: {}", e)))?;
+            csrf_token.set_sensitive(true);
+            headers.insert("x-csrf-token", csrf_token);
         }
 
         Ok(headers)
