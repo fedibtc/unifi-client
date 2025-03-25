@@ -180,6 +180,7 @@ struct AuthState {
 ///
 /// This client manages authentication, request handling, and provides access
 /// to the various API endpoints through dedicated API handlers.
+#[derive(Clone)]
 pub struct UniFiClient {
     controller_url: Url,
     username: String,
@@ -200,7 +201,7 @@ impl fmt::Debug for UniFiClient {
         };
 
         f.debug_struct("UniFiClient")
-            .field("controller_url", &self.controller_url)
+            .field("controller_url", &self.controller_url.as_str())
             .field("username", &self.username)
             .field("password", &self.password)
             .field("site", &self.site)
@@ -209,22 +210,6 @@ impl fmt::Debug for UniFiClient {
             .field("user_agent", &self.user_agent)
             .field("auth_state", &auth_state_info)
             .finish()
-    }
-}
-
-impl Clone for UniFiClient {
-    fn clone(&self) -> Self {
-        UniFiClient {
-            controller_url: self.controller_url.clone(),
-            username: self.username.clone(),
-            password: self.password.clone(),
-            site: self.site.clone(),
-            verify_ssl: self.verify_ssl,
-            timeout: self.timeout,
-            user_agent: self.user_agent.clone(),
-            http_client: self.http_client.clone(),
-            auth_state: self.auth_state.clone(),
-        }
     }
 }
 
