@@ -10,7 +10,7 @@ use secrecy::{ExposeSecret, SecretString};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use url::Url;
 
 use crate::api::guests;
@@ -162,7 +162,7 @@ impl UniFiClientBuilder {
             timeout,
             user_agent: self.user_agent,
             http_client,
-            auth_state: Arc::new(Mutex::new(None)),
+            auth_state: Arc::new(RwLock::new(None)),
         };
         client.login().await?;
         Ok(client)
@@ -189,12 +189,15 @@ pub struct UniFiClient {
     timeout: Duration,
     user_agent: Option<String>,
     http_client: ReqwestClient,
-    auth_state: Arc<Mutex<Option<AuthState>>>,
+    auth_state: Arc<RwLock<Option<AuthState>>>,
 }
 
 impl fmt::Debug for UniFiClient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let auth_state_locked = self.auth_state.try_lock().unwrap();
+        let auth_state_info = match self.auth_state.try_read() {
+            Ok(guard) => format!("Some({})", guard.is_some()),
+            Err(_) => "Locked".to_string(),
+        };
 
         f.debug_struct("UniFiClient")
             .field("controller_url", &self.controller_url)
@@ -204,7 +207,7 @@ impl fmt::Debug for UniFiClient {
             .field("verify_ssl", &self.verify_ssl)
             .field("timeout", &self.timeout)
             .field("user_agent", &self.user_agent)
-            .field("auth_state", &auth_state_locked.is_some())
+            .field("auth_state", &auth_state_info)
             .finish()
     }
 }
@@ -245,7 +248,7 @@ impl Default for UniFiClient {
             timeout: Duration::from_secs(30),
             user_agent: Some(concat!("unifi-client/", env!("CARGO_PKG_VERSION")).to_string()),
             http_client: reqwest::Client::new(),
-            auth_state: Arc::new(Mutex::new(None)),
+            auth_state: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -322,7 +325,7 @@ impl UniFiClient {
             ));
         }
 
-        let mut auth_state = self.auth_state.lock().await;
+        let mut auth_state = self.auth_state.write().await;
         *auth_state = Some(AuthState {
             cookies: SecretString::from(cookie_header),
             csrf_token: csrf_token.map(|token| SecretString::from(token)),
@@ -340,7 +343,7 @@ impl UniFiClient {
         if self.controller_url.as_str().is_empty() {
             return Err(UniFiError::ConfigurationError("Controller URL is required".into()));
         }
-        if self.auth_state.lock().await.is_none() {
+        if self.auth_state.read().await.is_none() {
             return self.login().await;
         }
 
@@ -362,7 +365,7 @@ impl UniFiClient {
 
     // Helper to get authentication headers
     async fn get_auth_headers(&self) -> UniFiResult<HeaderMap> {
-        let auth_state = self.auth_state.lock().await;
+        let auth_state = self.auth_state.read().await;
         let auth_state = auth_state.as_ref().ok_or(UniFiError::NotAuthenticated)?;
 
         let mut headers = HeaderMap::new();
