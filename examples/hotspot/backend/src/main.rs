@@ -281,7 +281,7 @@ async fn main() {
         .allow_headers(Any);
 
     // Serve the frontend SPA.
-    let static_files = get_service(
+    let frontend = get_service(
         ServeDir::new(config.frontend_dir)
             .append_index_html_on_directories(true)
         )
@@ -297,7 +297,8 @@ async fn main() {
         .route("/guests/authorize", post(authorize_guest))
         .layer(cors)
         .with_state(state)
-        .fallback(static_files);
+        .nest_service("/guest/s/default", frontend.clone())
+        .fallback_service(frontend);
 
     // Bind the server to localhost:3000.
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
