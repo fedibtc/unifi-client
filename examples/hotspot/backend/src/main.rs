@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::routing::post;
+use axum::routing::{get_service, post};
 use axum::{Json, Router};
 use chrono::{DateTime, Utc};
 use config::{Config, ConfigError, Environment};
@@ -12,6 +12,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use validator::{Validate, ValidateArgs, ValidationError};
@@ -119,11 +120,12 @@ struct GuestAuthResponse {
 // Configuration struct
 #[derive(Clone, Debug, Deserialize)]
 struct AppConfig {
+    frontend_dir: String,
+    port: u16,
     unifi_controller_url: String,
     unifi_username: String,
     unifi_site: String,
     verify_ssl: bool,
-    port: u16,
     max_duration_minutes: u32,
     max_data_quota_megabytes: u64,
 }
@@ -278,15 +280,28 @@ async fn main() {
         .allow_methods(Any)
         .allow_headers(Any);
 
-    // Build the Axum application with the guest authorization endpoint.
+    // Serve the frontend SPA.
+    let static_files = get_service(
+        ServeDir::new(config.frontend_dir)
+            .append_index_html_on_directories(true)
+        )
+        .handle_error(|error| async move {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to serve frontend: {}", error),
+            )
+        });
+
+    // Build the Axum application with the guest authorization endpoint and the frontend SPA.
     let app = Router::new()
-        .route("/guest/authorize", post(authorize_guest))
+        .route("/guests/authorize", post(authorize_guest))
         .layer(cors)
-        .with_state(state);
+        .with_state(state)
+        .fallback(static_files);
 
     // Bind the server to localhost:3000.
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
-    tracing::info!("Listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    tracing::info!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
 }
