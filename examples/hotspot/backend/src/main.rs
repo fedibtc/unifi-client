@@ -1,4 +1,3 @@
-use std::fmt;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -118,7 +117,7 @@ struct GuestAuthResponse {
 }
 
 // Configuration struct
-#[derive(Deserialize, Clone)]
+#[derive(Clone, Debug, Deserialize)]
 struct AppConfig {
     unifi_controller_url: String,
     unifi_username: String,
@@ -144,21 +143,6 @@ impl AppConfig {
     }
 }
 
-// Custom Debug implementation that masks the password
-impl fmt::Debug for AppConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AppConfig")
-            .field("unifi_controller_url", &self.unifi_controller_url)
-            .field("unifi_username", &self.unifi_username)
-            .field("unifi_site", &self.unifi_site)
-            .field("verify_ssl", &self.verify_ssl)
-            .field("port", &self.port)
-            .field("max_duration_minutes", &self.max_duration_minutes)
-            .field("max_data_quota_megabytes", &self.max_data_quota_megabytes)
-            .finish()
-    }
-}
-
 // Shared application state
 #[derive(Clone)]
 struct AppState {
@@ -170,6 +154,7 @@ async fn authorize_guest(
     State(state): State<AppState>,
     Json(payload): Json<GuestAuthRequest>,
 ) -> Result<(StatusCode, Json<GuestAuthResponse>), (StatusCode, String)> {
+    
     // Create validation context with limits from config
     let validation_limits = ValidationLimits {
         max_duration_minutes: state.config.max_duration_minutes,
