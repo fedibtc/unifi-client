@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  # Triggers the workflow on push events for the "main" and "master" branches
+  push:
+    branches: ['main', 'master']
+
+    tags: ['v*'] # Push events to matching v*, i.e. v1.0, v20.15.10
+
+  # Triggers the workflow on pull request events for the "main" and "master" branches
+  pull_request:
+    branches: ['main', 'master']
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# https://stackoverflow.com/questions/66335225/how-to-cancel-previous-runs-in-the-pr-when-you-push-new-commitsupdate-the-curre
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # Use the standard GitHub-hosted Ubuntu runner
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout the code from the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up the Rust toolchain
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      # 3. Install nightly rustfmt
+      # (so we can use unstable style directives in .rustfmt.toml)
+      - name: Install nightly rustfmt
+        run: |
+          rustup toolchain install nightly
+          rustup component add rustfmt --toolchain nightly
+
+      # 4. Cache Cargo dependencies to speed up builds
+      - name: Cache Cargo registry + git + build
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      # 5. Verify formatting
+      - name: Formatting
+        run: cargo +nightly fmt --all -- --check
+
+      # 6. Run the tests
+      - name: Run tests
+        run: |
+          cargo build --all --locked
+          cargo test --all --locked

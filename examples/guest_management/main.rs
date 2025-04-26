@@ -1,9 +1,10 @@
-use env_logger;
 use std::env;
 use std::error::Error;
 use std::io::{self, Write};
 
-use unifi_client::{ClientConfig, GuestConfig, GuestEntry, UniFiClient};
+use env_logger;
+use unifi_client::models::guests::GuestEntry;
+use unifi_client::UniFiClient;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -14,7 +15,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let controller = env::var("UNIFI_CONTROLLER")
         .unwrap_or_else(|_| "https://unifi.example.com:8443".to_string());
     let username = env::var("UNIFI_USERNAME").unwrap_or_else(|_| "admin".to_string());
-    let password = env::var("UNIFI_PASSWORD").ok();
     let site = env::var("UNIFI_SITE").unwrap_or_else(|_| "default".to_string());
     let verify_ssl = env::var("UNIFI_VERIFY_SSL")
         .map(|v| v.to_lowercase() == "true")
@@ -25,21 +25,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("Controller: {}", controller);
     println!("Site: {}", site);
 
-    // Create client configuration
-    let config = ClientConfig::builder()
+    // Create and authenticate the UniFi client using the builder
+    let client = UniFiClient::builder()
         .controller_url(&controller)
         .username(&username)
+        .password_from_env("UNIFI_PASSWORD")
         .site(&site)
         .verify_ssl(verify_ssl)
-        .build()?;
-
-    // Create the UniFi client and authenticate
-    let mut client = UniFiClient::new(config);
-    client.login(password).await?;
+        .build()
+        .await?;
     println!("✅ Authentication successful!");
 
-    // Get a reference to the guest API
-    let guest_api = client.guests();
+    // Get a reference to the guest API handler
+    let guest_handler = client.guests(); // Get the handler
 
     // Display menu
     loop {
@@ -59,8 +57,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         match choice.trim() {
             "1" => {
                 println!("\nFetching active guests...");
-                let guests = guest_api.list(None).await?;
-                let active_guests: Vec<_> = guests.into_iter()
+                let guests = guest_handler.list().send().await?;
+                let active_guests: Vec<_> = guests
+                    .into_iter()
                     .filter(|guest| !guest.is_expired())
                     .collect();
 
@@ -87,8 +86,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             "2" => {
                 println!("\nFetching expired guests...");
-                let guests = guest_api.list(None).await?;
-                let expired_guests: Vec<_> = guests.into_iter()
+                // Use the ListGuestsBuilder
+                let guests = guest_handler.list().send().await?;
+                let expired_guests: Vec<_> = guests
+                    .into_iter()
                     .filter(|guest| guest.is_expired())
                     .collect();
 
@@ -96,10 +97,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     println!("No expired guests found.");
                 } else {
                     println!("\nFound {} expired guests:", expired_guests.len());
-                    println!(
-                        "{:<26} {:<20} {:<25}",
-                        "ID", "MAC", "Unauthorized By"
-                    );
+                    println!("{:<26} {:<20} {:<25}", "ID", "MAC", "Unauthorized By");
                     println!("{}", "-".repeat(80));
 
                     for guest in expired_guests {
@@ -107,17 +105,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         let id = guest.id();
                         let mac = guest.mac();
                         let unauthorized_by = match &guest {
-                            GuestEntry::Inactive { unauthorized_by, .. } => {
-                                unauthorized_by.clone().unwrap_or_else(|| "".to_string())
-                            },
-                            _ => "".to_string()
+                            GuestEntry::Inactive {
+                                unauthorized_by, ..
+                            } => unauthorized_by.clone().unwrap_or_else(|| "".to_string()),
+                            _ => "".to_string(),
                         };
-                        println!(
-                            "{:<26} {:<20} {:<25}",
-                            id,
-                            mac,
-                            unauthorized_by,
-                        );
+                        println!("{:<26} {:<20} {:<25}", id, mac, unauthorized_by,);
                     }
                 }
             }
@@ -127,6 +120,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 io::stdout().flush().unwrap();
                 let mut mac = String::new();
                 io::stdin().read_line(&mut mac)?;
+                let mac = mac.trim().to_string();
 
                 print!("Duration in minutes (e.g., 1440 for 1 day): ");
                 io::stdout().flush().unwrap();
@@ -135,17 +129,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let duration: u32 = duration_str.trim().parse()?;
 
                 println!("\nAuthorizing guest...");
-                let guest_config = GuestConfig::builder()
-                    .mac(mac.trim())
-                    .duration(duration)
-                    .build()?;
-
-                let guest = guest_api.authorize(guest_config).await?;
+                // Use the AuthorizeGuestBuilder
+                let guest = guest_handler
+                    .authorize(&mac)
+                    .duration_minutes(duration)
+                    .send() // Send the request via the builder
+                    .await?;
                 println!("✅ Successfully authorized guest: {}", guest.mac());
             }
             "4" => {
                 println!("\nUnauthorize a Guest");
-                let guests = guest_api.list(None).await?;
+                // Use the ListGuestsBuilder
+                let guests = guest_handler.list().send().await?;
 
                 if guests.is_empty() {
                     println!("No guests available to unauthorize.");
@@ -165,12 +160,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         "Active"
                     };
 
-                    println!(
-                        "{:<5} {:<20} {:<12}",
-                        i + 1,
-                        guest.mac(),
-                        status
-                    );
+                    println!("{:<5} {:<20} {:<12}", i + 1, guest.mac(), status);
                 }
 
                 print!("\nEnter guest number to unauthorize (or 0 to cancel): ");
@@ -196,7 +186,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 if confirm.trim().to_lowercase() == "y" {
                     println!("Unauthorizing guest...");
-                    guest_api.unauthorize(selected_guest.mac()).await?;
+                    // Use the UnauthorizeGuestBuilder
+                    guest_handler
+                        .unauthorize(selected_guest.mac())
+                        .send()
+                        .await?;
                     println!("✅ Guest unauthorized successfully.");
                 } else {
                     println!("Operation cancelled.");
@@ -207,22 +201,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!("⚠️☠️🚨  WARNING: This will unauthorize all guests in the system!");
                 println!("To confirm, please type UNAUTHORIZE in all caps: ");
                 io::stdout().flush().unwrap();
-                
+
                 let mut confirmation = String::new();
                 io::stdin().read_line(&mut confirmation)?;
 
                 if confirmation.trim() == "UNAUTHORIZE" {
-                    println!("Fetching guests...");
-                    let guests = guest_api.list(None).await?;
-                    
-                    if guests.is_empty() {
-                        println!("No guests to unauthorize.");
-                        continue;
-                    }
+                    // Use the UnauthorizeAllGuestsBuilder
+                    let result = guest_handler.unauthorize_all().send().await;
 
-                    println!("Unauthorizing {} guests...", guests.len());
-                    guest_api.unauthorize_all().await?;
-                    println!("✅ Successfully unauthorized all guests.");
+                    match result {
+                        Ok(_) => println!("✅ Successfully unauthorized all guests."),
+                        Err(e) => println!("❌ Failed to unauthorize all guests: {}", e),
+                    }
                 } else {
                     println!("Operation cancelled - confirmation did not match.");
                 }
@@ -236,4 +226,4 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
-} 
+}

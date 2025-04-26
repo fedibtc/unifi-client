@@ -270,15 +270,22 @@ impl UniFiClient {
             }
         };
 
-        let login_url =
-            self.controller_url.join("/api/login").map_err(|e| UniFiError::UrlParseError(e))?;
+        let login_url = self
+            .controller_url
+            .join("/api/login")
+            .map_err(|e| UniFiError::UrlParseError(e))?;
 
         let login_data = models::auth::LoginRequest {
             username: self.username.clone(),
             password,
         };
 
-        let response = self.http_client.post(login_url).json(&login_data).send().await?;
+        let response = self
+            .http_client
+            .post(login_url)
+            .json(&login_data)
+            .send()
+            .await?;
 
         if !response.status().is_success() {
             return Err(UniFiError::AuthenticationError(format!(
@@ -306,7 +313,10 @@ impl UniFiClient {
 
         if login_response.meta.rc != "ok" {
             return Err(UniFiError::AuthenticationError(
-                login_response.meta.msg.unwrap_or_else(|| "Unknown error".into()),
+                login_response
+                    .meta
+                    .msg
+                    .unwrap_or_else(|| "Unknown error".into()),
             ));
         }
 
@@ -323,19 +333,31 @@ impl UniFiClient {
     async fn ensure_authenticated(&self) -> UniFiResult<()> {
         // Check if essential fields are configured *before* trying to use them.
         if self.username.is_empty() {
-            return Err(UniFiError::ConfigurationError("Username is required".into()));
+            return Err(UniFiError::ConfigurationError(
+                "Username is required".into(),
+            ));
         }
         if self.controller_url.as_str().is_empty() {
-            return Err(UniFiError::ConfigurationError("Controller URL is required".into()));
+            return Err(UniFiError::ConfigurationError(
+                "Controller URL is required".into(),
+            ));
         }
         if self.auth_state.read().await.is_none() {
             return self.login().await;
         }
 
-        let url =
-            self.controller_url.join("/api/self").map_err(|e| UniFiError::UrlParseError(e))?;
+        let url = self
+            .controller_url
+            .join("/api/self")
+            .map_err(|e| UniFiError::UrlParseError(e))?;
 
-        match self.http_client.get(url).headers(self.get_auth_headers().await?).send().await {
+        match self
+            .http_client
+            .get(url)
+            .headers(self.get_auth_headers().await?)
+            .send()
+            .await
+        {
             Ok(response) => {
                 if response.status().is_success() {
                     return Ok(());
@@ -443,11 +465,15 @@ impl UniFiClient {
     {
         self.ensure_authenticated().await?;
 
-        let url = self.controller_url.join(endpoint).map_err(|e| UniFiError::UrlParseError(e))?;
+        let url = self
+            .controller_url
+            .join(endpoint)
+            .map_err(|e| UniFiError::UrlParseError(e))?;
 
-        let mut request = self
-            .http_client
-            .request(Method::from_bytes(method.as_bytes()).unwrap_or(Method::GET), url);
+        let mut request = self.http_client.request(
+            Method::from_bytes(method.as_bytes()).unwrap_or(Method::GET),
+            url,
+        );
 
         request = request.headers(self.get_auth_headers().await?);
 
@@ -460,7 +486,10 @@ impl UniFiClient {
 
         if api_response.meta.rc != "ok" {
             return Err(UniFiError::ApiError(
-                api_response.meta.msg.unwrap_or_else(|| "Unknown API error".into()),
+                api_response
+                    .meta
+                    .msg
+                    .unwrap_or_else(|| "Unknown API error".into()),
             ));
         }
 
@@ -480,7 +509,10 @@ impl UniFiClient {
     {
         self.ensure_authenticated().await?;
 
-        let url = self.controller_url.join(endpoint).map_err(|e| UniFiError::UrlParseError(e))?;
+        let url = self
+            .controller_url
+            .join(endpoint)
+            .map_err(|e| UniFiError::UrlParseError(e))?;
 
         let mut request = self.http_client.request(method, url);
 
@@ -508,7 +540,10 @@ impl UniFiClient {
 
         if api_response.meta.rc != "ok" {
             return Err(UniFiError::ApiError(
-                api_response.meta.msg.unwrap_or_else(|| "Unknown API error".into()),
+                api_response
+                    .meta
+                    .msg
+                    .unwrap_or_else(|| "Unknown API error".into()),
             ));
         }
 

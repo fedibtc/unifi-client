@@ -1,7 +1,7 @@
 use serde_json::Value;
+use unifi_client::{UniFiClient, UniFiResult};
 
 use crate::utils::random_mac;
-use unifi_client::{UniFiClient, UniFiResult};
 
 pub struct GuestsValidator {
     client: UniFiClient,
@@ -158,7 +158,10 @@ impl GuestsValidator {
             }
 
             if valid {
-                println!("✅ List authorized guests test passed for {} guest entries", guests.len());
+                println!(
+                    "✅ List authorized guests test passed for {} guest entries",
+                    guests.len()
+                );
             }
         } else {
             println!("❌ Invalid response format: expected array");
@@ -215,7 +218,7 @@ impl GuestsValidator {
         let client = self.client.clone();
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
-        
+
         // Test values to try
         let test_values = [
             (-1, "negative value"),
@@ -228,59 +231,74 @@ impl GuestsValidator {
             (525600, "1 year"),
             (1051200, "2 years"),
         ];
-        
+
         for (minutes, description) in &test_values {
             // Generate a random MAC for each test
             let test_mac = random_mac();
-            
+
             // Create authorization request
             let payload = serde_json::json!({
                 "cmd": "authorize-guest",
                 "mac": test_mac,
                 "minutes": minutes,
             });
-            
+
             // Make raw API call and check if it succeeds
             let result = client.raw_request("POST", &endpoint, Some(payload)).await;
-            
+
             match result {
                 Ok(response) => {
                     if let Some(auth) = response.as_array().and_then(|arr| arr.first()) {
                         // Check if the response indicates success
                         if auth["_id"].is_string() {
                             // Validate that the duration matches what was requested
-                            if let (Some(start), Some(end)) = (auth["start"].as_u64(), auth["end"].as_u64()) {
+                            if let (Some(start), Some(end)) =
+                                (auth["start"].as_u64(), auth["end"].as_u64())
+                            {
                                 let actual_minutes = (end - start) / 60;
-                                let expected_minutes = if *minutes < 0 { 0 } else { *minutes as u64 };
-                                
+                                let expected_minutes =
+                                    if *minutes < 0 { 0 } else { *minutes as u64 };
+
                                 if actual_minutes == expected_minutes {
-                                    println!("✅ Minutes = {}: {} accepted with correct duration", minutes, description);
+                                    println!(
+                                        "✅ Minutes = {}: {} accepted with correct duration",
+                                        minutes, description
+                                    );
                                 } else {
                                     println!("⚠️ Minutes = {}: {} accepted but with adjusted duration: {}", 
                                              minutes, description, actual_minutes);
                                 }
                             } else {
-                                println!("⚠️ Minutes = {}: {} accepted but couldn't validate duration", 
-                                         minutes, description);
+                                println!(
+                                    "⚠️ Minutes = {}: {} accepted but couldn't validate duration",
+                                    minutes, description
+                                );
                             }
                         } else {
-                            println!("❌ Minutes = {}: {} failed - unexpected response structure", 
-                                     minutes, description);
+                            println!(
+                                "❌ Minutes = {}: {} failed - unexpected response structure",
+                                minutes, description
+                            );
                         }
                     } else {
-                        println!("❌ Minutes = {}: {} failed - empty or invalid response", 
-                                 minutes, description);
+                        println!(
+                            "❌ Minutes = {}: {} failed - empty or invalid response",
+                            minutes, description
+                        );
                     }
-                },
+                }
                 Err(e) => {
-                    println!("❌ Minutes = {}: {} rejected with error: {}", minutes, description, e);
+                    println!(
+                        "❌ Minutes = {}: {} rejected with error: {}",
+                        minutes, description, e
+                    );
                 }
             }
-            
+
             // Add a small delay between requests to avoid overwhelming the controller
             tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         }
-        
+
         println!("Minutes parameter range testing complete");
         Ok(())
     }
@@ -289,30 +307,40 @@ impl GuestsValidator {
         let client = self.client.clone();
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
-        
+
         println!("Testing MAC address format acceptance...");
-        
+
         // Generate a random MAC in standard format
         let standard_mac = random_mac(); // This is colon-separated: 00:11:22:33:44:55
-        
+
         // Create variations of the same MAC
         let without_colons = standard_mac.replace(":", ""); // 001122334455
-        let with_hyphens = standard_mac.replace(":", "-");  // 00-11-22-33-44-55
-        let uppercase = standard_mac.to_uppercase();        // 00:11:22:33:44:55
-        let mixed_case = standard_mac.chars()
+        let with_hyphens = standard_mac.replace(":", "-"); // 00-11-22-33-44-55
+        let uppercase = standard_mac.to_uppercase(); // 00:11:22:33:44:55
+        let mixed_case = standard_mac
+            .chars()
             .enumerate()
-            .map(|(i, c)| if i % 2 == 0 { c.to_ascii_uppercase() } else { c })
-            .collect::<String>();                          // 0A:1B:2C:3D:4E:5F
-        
+            .map(|(i, c)| {
+                if i % 2 == 0 {
+                    c.to_ascii_uppercase()
+                } else {
+                    c
+                }
+            })
+            .collect::<String>(); // 0A:1B:2C:3D:4E:5F
+
         // Test different formats
         let test_formats = [
-            (standard_mac.clone(), "Standard colon-separated (00:11:22:33:44:55)"),
+            (
+                standard_mac.clone(),
+                "Standard colon-separated (00:11:22:33:44:55)",
+            ),
             (without_colons, "No separators (001122334455)"),
             (with_hyphens, "Hyphen-separated (00-11-22-33-44-55)"),
             (uppercase, "Uppercase (00:11:22:33:44:55)"),
             (mixed_case, "Mixed case (0A:1B:2C:3D:4E:5F)"),
         ];
-        
+
         for (mac, description) in &test_formats {
             // Create authorization request
             let payload = serde_json::json!({
@@ -320,10 +348,10 @@ impl GuestsValidator {
                 "mac": mac,
                 "minutes": 5, // Short duration to avoid cluttering the system
             });
-            
+
             // Make raw API call and check if it succeeds
             let result = client.raw_request("POST", &endpoint, Some(payload)).await;
-            
+
             match result {
                 Ok(response) => {
                     if let Some(auth) = response.as_array().and_then(|arr| arr.first()) {
@@ -331,26 +359,38 @@ impl GuestsValidator {
                         if let Some(returned_mac) = auth["mac"].as_str() {
                             // Check if the returned MAC is normalized to a particular format
                             if returned_mac == &standard_mac {
-                                println!("✅ Format accepted: {} - Controller returned standard format", description);
+                                println!(
+                                    "✅ Format accepted: {} - Controller returned standard format",
+                                    description
+                                );
                             } else {
-                                println!("✅ Format accepted: {} - Controller normalized to: {}", description, returned_mac);
+                                println!(
+                                    "✅ Format accepted: {} - Controller normalized to: {}",
+                                    description, returned_mac
+                                );
                             }
                         } else {
-                            println!("⚠️ Format potentially accepted: {} - But no MAC in response", description);
+                            println!(
+                                "⚠️ Format potentially accepted: {} - But no MAC in response",
+                                description
+                            );
                         }
                     } else {
-                        println!("❌ Format rejected: {} - Empty or invalid response", description);
+                        println!(
+                            "❌ Format rejected: {} - Empty or invalid response",
+                            description
+                        );
                     }
-                },
+                }
                 Err(e) => {
                     println!("❌ Format rejected: {} - Error: {}", description, e);
                 }
             }
-            
+
             // Add a small delay between requests
             tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         }
-        
+
         // Additional edge cases worth testing
         let edge_cases = [
             ("0:1:2:3:4:5", "Short single digits"),
@@ -360,7 +400,7 @@ impl GuestsValidator {
             ("00:11:22:33:44:55:66", "Too long (7 octets)"),
             ("GG:HH:II:JJ:KK:LL", "Invalid hex characters"),
         ];
-        
+
         println!("\nTesting edge cases...");
         for (mac, description) in &edge_cases {
             // Create authorization request
@@ -369,32 +409,41 @@ impl GuestsValidator {
                 "mac": mac,
                 "minutes": 5,
             });
-            
+
             // Make raw API call and check if it succeeds
             let result = client.raw_request("POST", &endpoint, Some(payload)).await;
-            
+
             match result {
                 Ok(response) => {
                     if let Some(auth) = response.as_array().and_then(|arr| arr.first()) {
                         // Check if the response indicates success and includes a MAC
                         if let Some(returned_mac) = auth["mac"].as_str() {
-                            println!("✅ Edge case accepted: {} - Controller normalized to: {}", description, returned_mac);
+                            println!(
+                                "✅ Edge case accepted: {} - Controller normalized to: {}",
+                                description, returned_mac
+                            );
                         } else {
-                            println!("⚠️ Edge case potentially accepted: {} - But no MAC in response", description);
+                            println!(
+                                "⚠️ Edge case potentially accepted: {} - But no MAC in response",
+                                description
+                            );
                         }
                     } else {
-                        println!("❌ Edge case rejected: {} - Empty or invalid response", description);
+                        println!(
+                            "❌ Edge case rejected: {} - Empty or invalid response",
+                            description
+                        );
                     }
-                },
+                }
                 Err(e) => {
                     println!("❌ Edge case rejected: {} - Error: {}", description, e);
                 }
             }
-            
+
             // Add a small delay between requests
             tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         }
-        
+
         println!("MAC address format testing complete");
         Ok(())
     }
