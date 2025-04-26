@@ -34,16 +34,31 @@ jobs:
         with:
           components: rustfmt
 
+      # 3. Install nightly rustfmt
+      # (so we can use unstable style directives in .rustfmt.toml)
       - name: Install nightly rustfmt
         run: |
           rustup toolchain install nightly
           rustup component add rustfmt --toolchain nightly
 
-      # 3. Verify formatting
+      # 4. Cache Cargo dependencies to speed up builds
+      - name: Cache Cargo registry + git + build
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      # 5. Verify formatting
       - name: Formatting
         run: cargo +nightly fmt --all -- --check
 
-      # 4. Run the tests
+      # 6. Run the tests
       - name: Run tests
         run: |
           cargo build --all --locked
