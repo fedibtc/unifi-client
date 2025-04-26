@@ -1,9 +1,10 @@
-use env_logger;
 use std::env;
 use std::error::Error;
 use std::io::{self, Write};
 
-use unifi_client::{models::guests::GuestEntry, UniFiClient};
+use env_logger;
+use unifi_client::models::guests::GuestEntry;
+use unifi_client::UniFiClient;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -56,8 +57,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         match choice.trim() {
             "1" => {
                 println!("\nFetching active guests...");
-                let guests = guest_handler.list().send().await?; 
-                let active_guests: Vec<_> = guests.into_iter()
+                let guests = guest_handler.list().send().await?;
+                let active_guests: Vec<_> = guests
+                    .into_iter()
                     .filter(|guest| !guest.is_expired())
                     .collect();
 
@@ -86,7 +88,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!("\nFetching expired guests...");
                 // Use the ListGuestsBuilder
                 let guests = guest_handler.list().send().await?;
-                let expired_guests: Vec<_> = guests.into_iter()
+                let expired_guests: Vec<_> = guests
+                    .into_iter()
                     .filter(|guest| guest.is_expired())
                     .collect();
 
@@ -94,10 +97,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     println!("No expired guests found.");
                 } else {
                     println!("\nFound {} expired guests:", expired_guests.len());
-                    println!(
-                        "{:<26} {:<20} {:<25}",
-                        "ID", "MAC", "Unauthorized By"
-                    );
+                    println!("{:<26} {:<20} {:<25}", "ID", "MAC", "Unauthorized By");
                     println!("{}", "-".repeat(80));
 
                     for guest in expired_guests {
@@ -105,17 +105,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         let id = guest.id();
                         let mac = guest.mac();
                         let unauthorized_by = match &guest {
-                            GuestEntry::Inactive { unauthorized_by, .. } => {
-                                unauthorized_by.clone().unwrap_or_else(|| "".to_string())
-                            },
-                            _ => "".to_string()
+                            GuestEntry::Inactive {
+                                unauthorized_by, ..
+                            } => unauthorized_by.clone().unwrap_or_else(|| "".to_string()),
+                            _ => "".to_string(),
                         };
-                        println!(
-                            "{:<26} {:<20} {:<25}",
-                            id,
-                            mac,
-                            unauthorized_by,
-                        );
+                        println!("{:<26} {:<20} {:<25}", id, mac, unauthorized_by,);
                     }
                 }
             }
@@ -157,7 +152,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!("{}", "-".repeat(40));
 
                 for (i, guest) in guests.iter().enumerate() {
-                     let status = if guest.is_expired() {
+                    let status = if guest.is_expired() {
                         "Expired"
                     } else if guest.was_unauthorized() {
                         "Unauthorized"
@@ -165,12 +160,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         "Active"
                     };
 
-                    println!(
-                        "{:<5} {:<20} {:<12}",
-                        i + 1,
-                        guest.mac(),
-                        status
-                    );
+                    println!("{:<5} {:<20} {:<12}", i + 1, guest.mac(), status);
                 }
 
                 print!("\nEnter guest number to unauthorize (or 0 to cancel): ");
@@ -197,7 +187,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if confirm.trim().to_lowercase() == "y" {
                     println!("Unauthorizing guest...");
                     // Use the UnauthorizeGuestBuilder
-                    guest_handler.unauthorize(selected_guest.mac()).send().await?;
+                    guest_handler
+                        .unauthorize(selected_guest.mac())
+                        .send()
+                        .await?;
                     println!("✅ Guest unauthorized successfully.");
                 } else {
                     println!("Operation cancelled.");
@@ -208,14 +201,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!("⚠️☠️🚨  WARNING: This will unauthorize all guests in the system!");
                 println!("To confirm, please type UNAUTHORIZE in all caps: ");
                 io::stdout().flush().unwrap();
-                
+
                 let mut confirmation = String::new();
                 io::stdin().read_line(&mut confirmation)?;
 
                 if confirmation.trim() == "UNAUTHORIZE" {
                     // Use the UnauthorizeAllGuestsBuilder
-                    let result = guest_handler.unauthorize_all().send().await; 
-                    
+                    let result = guest_handler.unauthorize_all().send().await;
+
                     match result {
                         Ok(_) => println!("✅ Successfully unauthorized all guests."),
                         Err(e) => println!("❌ Failed to unauthorize all guests: {}", e),
@@ -233,4 +226,4 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
-} 
+}
