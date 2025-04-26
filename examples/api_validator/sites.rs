@@ -14,9 +14,9 @@ impl SitesValidator {
         let client = self.client.clone();
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/stat/sysinfo", site);
-        
+
         let site_info: Value = client.raw_request("GET", &endpoint, None::<()>).await?;
-        
+
         // Validate site info structure
         if let Some(info) = site_info.as_array().and_then(|v| v.first()) {
             if info["name"].is_string() {
@@ -25,7 +25,7 @@ impl SitesValidator {
                 println!("❌ Site info test failed: missing name field");
             }
         }
-        
+
         Ok(())
     }
 

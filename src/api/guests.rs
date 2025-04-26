@@ -107,7 +107,11 @@ impl GuestHandler {
     /// #
     /// # async fn example(client: &UniFiClient) -> Result<(), unifi_client::UniFiError> {
     /// // Unauthorize a specific guest
-    /// client.guests().unauthorize("00:11:22:33:44:55").send().await?;
+    /// client
+    ///     .guests()
+    ///     .unauthorize("00:11:22:33:44:55")
+    ///     .send()
+    ///     .await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -226,8 +230,10 @@ impl AuthorizeGuestBuilder {
             ap_mac: self.access_point_mac_address,
         };
 
-        let response: Vec<models::guests::GuestEntry> =
-            self.unifi_client.request(Method::POST, &endpoint, Some(request)).await?;
+        let response: Vec<models::guests::GuestEntry> = self
+            .unifi_client
+            .request(Method::POST, &endpoint, Some(request))
+            .await?;
 
         response
             .into_iter()
@@ -257,7 +263,9 @@ impl ListGuestsBuilder {
     pub async fn send(self) -> UniFiResult<Vec<models::guests::GuestEntry>> {
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/stat/guest", site);
-        let params = self.within.map(|hours| serde_json::json!({ "within": hours }));
+        let params = self
+            .within
+            .map(|hours| serde_json::json!({ "within": hours }));
 
         self.client.request(Method::GET, &endpoint, params).await
     }
@@ -279,7 +287,10 @@ impl UnauthorizeGuestBuilder {
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
         let request = models::guests::UnauthorizeGuestRequest::new(self.mac);
 
-        self.client.request(Method::POST, &endpoint, Some(request)).await.map(|_: EmptyResponse| ())
+        self.client
+            .request(Method::POST, &endpoint, Some(request))
+            .await
+            .map(|_: EmptyResponse| ())
     }
 }
 

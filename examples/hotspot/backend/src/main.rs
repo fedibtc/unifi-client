@@ -15,9 +15,8 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use validator::{Validate, ValidateArgs, ValidationError};
-
 use unifi_client::{models, UniFiClient};
+use validator::{Validate, ValidateArgs, ValidationError};
 
 // Context struct for validation limits
 #[derive(Clone)]
@@ -156,7 +155,6 @@ async fn authorize_guest(
     State(state): State<AppState>,
     Json(payload): Json<GuestAuthRequest>,
 ) -> Result<(StatusCode, Json<GuestAuthResponse>), (StatusCode, String)> {
-    
     // Create validation context with limits from config
     let validation_limits = ValidationLimits {
         max_duration_minutes: state.config.max_duration_minutes,
@@ -172,7 +170,8 @@ async fn authorize_guest(
     }
 
     // Authorize the guest.
-    let mut auth_builder = state.unifi_client
+    let mut auth_builder = state
+        .unifi_client
         .guests()
         .authorize(payload.client_mac_address)
         .access_point_mac_address(payload.access_point_mac_address)
@@ -184,23 +183,20 @@ async fn authorize_guest(
     if let Some(duration) = payload.duration_minutes {
         auth_builder = auth_builder.duration_minutes(duration);
     }
-    
+
     // Conditionally set data quota if provided.
     if let Some(data_quota) = payload.data_quota_megabytes {
         auth_builder = auth_builder.data_quota_megabytes(data_quota);
     }
 
     // Execute the request.
-    let guest_entry = auth_builder
-        .send()
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to authorize guest: {:?}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to authorize guest: {}", e),
-            )
-        })?;
+    let guest_entry = auth_builder.send().await.map_err(|e| {
+        tracing::error!("Failed to authorize guest: {:?}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to authorize guest: {}", e),
+        )
+    })?;
 
     // Return guest authorization response.
     match guest_entry {
@@ -271,7 +267,7 @@ async fn main() {
     // Create shared state with the authenticated UniFi client and session store.
     let state = AppState {
         config: config.clone(),
-        unifi_client: unifi_client::instance()
+        unifi_client: unifi_client::instance(),
     };
 
     // CORS configuration
@@ -281,16 +277,14 @@ async fn main() {
         .allow_headers(Any);
 
     // Serve the frontend SPA.
-    let frontend = get_service(
-        ServeDir::new(config.frontend_dir)
-            .append_index_html_on_directories(true)
-        )
-        .handle_error(|error| async move {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to serve frontend: {}", error),
-            )
-        });
+    let frontend =
+        get_service(ServeDir::new(config.frontend_dir).append_index_html_on_directories(true))
+            .handle_error(|error| async move {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to serve frontend: {}", error),
+                )
+            });
 
     // Build the Axum application with the guest authorization endpoint and the frontend SPA.
     let app = Router::new()

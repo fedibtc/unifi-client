@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-
 use unifi_client::{UniFiClient, UniFiResult};
 
 mod guests;
@@ -45,7 +44,7 @@ async fn main() -> UniFiResult<()> {
         .build()
         .await
         .expect("Failed to build UniFiClient");
-    
+
     match cli.command.unwrap_or(Commands::All) {
         Commands::Sites => {
             let validator = SitesValidator::new(unifi_client);
@@ -59,7 +58,7 @@ async fn main() -> UniFiResult<()> {
             println!("Running all validators...");
             let site_validator = SitesValidator::new(unifi_client.clone());
             let guest_validator = GuestsValidator::new(unifi_client.clone());
-            
+
             site_validator.run_all_validations().await?;
             guest_validator.run_all_validations().await?;
         }
