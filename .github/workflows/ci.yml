@@ -34,9 +34,14 @@ jobs:
         with:
           components: rustfmt
 
+      - name: Install nightly rustfmt
+        run: |
+          rustup toolchain install nightly
+          rustup component add rustfmt --toolchain nightly
+
       # 3. Verify formatting
       - name: Formatting
-        run: cargo fmt --all -- --check
+        run: cargo +nightly fmt --all -- --check
 
       # 4. Run the tests
       - name: Run tests
