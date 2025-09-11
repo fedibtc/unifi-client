@@ -67,6 +67,15 @@ pub enum GuestEntry {
         bytes: u64,
         rx_bytes: u64,
         tx_bytes: u64,
+        // QoS (Quality of Service) fields
+        #[serde(skip_serializing_if = "Option::is_none")]
+        qos_overwrite: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        qos_rate_max_down: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        qos_rate_max_up: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        qos_usage_quota: Option<u64>,
     },
     /// A guest authorization that has been authorized but not yet connected to
     /// the network or has expired
@@ -81,6 +90,15 @@ pub enum GuestEntry {
         start: i64,
         // Optional field indicating if guest was explicitly unauthorized
         unauthorized_by: Option<String>,
+        // QoS (Quality of Service) fields - can be present even for inactive guests
+        #[serde(skip_serializing_if = "Option::is_none")]
+        qos_overwrite: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        qos_rate_max_down: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        qos_rate_max_up: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        qos_usage_quota: Option<u64>,
     },
     /// A newly authorized guest (response from authorize-guest command)
     New {
@@ -91,6 +109,15 @@ pub enum GuestEntry {
         mac: String,
         site_id: String,
         start: i64,
+        // QoS fields can be present in authorize-guest response
+        #[serde(skip_serializing_if = "Option::is_none")]
+        qos_overwrite: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        qos_rate_max_down: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        qos_rate_max_up: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        qos_usage_quota: Option<u64>,
     },
 }
 
