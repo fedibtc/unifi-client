@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs = {
-      url = "github:nixos/nixpkgs/nixos-24.11";
+      url = "github:nixos/nixpkgs/nixos-25.05";
     };
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay = {
@@ -23,9 +23,13 @@
       {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            rust-bin.nightly.latest.default
-            rust-bin.nightly.latest.rust-analyzer
+            cargo
+            cargo-semver-checks
+            clippy
+            rust-analyzer
+            rustc
             rust-bin.nightly.latest.rustfmt
+            rustPlatform.rustLibSrc
           ];
 
           RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
