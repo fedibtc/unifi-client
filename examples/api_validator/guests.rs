@@ -611,12 +611,14 @@ impl GuestsValidator {
                 "minutes": minutes,
             });
 
-            if let Some(u) = up { payload["up"] = serde_json::json!(u); }
-            if let Some(d) = down { payload["down"] = serde_json::json!(d); }
+            if let Some(u) = up {
+                payload["up"] = serde_json::json!(u);
+            }
+            if let Some(d) = down {
+                payload["down"] = serde_json::json!(d);
+            }
 
-            let response: Value = client
-                .raw_request("POST", endpoint, Some(payload))
-                .await?;
+            let response: Value = client.raw_request("POST", endpoint, Some(payload)).await?;
 
             if let Some(first) = response.as_array().and_then(|a| a.first()).cloned() {
                 Ok(first)
@@ -659,10 +661,7 @@ impl GuestsValidator {
                         passed = false;
                     }
                     None => {
-                        println!(
-                            "❌ {}: qos_rate_max_up missing or not a number",
-                            context
-                        );
+                        println!("❌ {}: qos_rate_max_up missing or not a number", context);
                         passed = false;
                     }
                 }
@@ -680,10 +679,7 @@ impl GuestsValidator {
                         passed = false;
                     }
                     None => {
-                        println!(
-                            "❌ {}: qos_rate_max_down missing or not a number",
-                            context
-                        );
+                        println!("❌ {}: qos_rate_max_down missing or not a number", context);
                         passed = false;
                     }
                 }
@@ -726,7 +722,8 @@ impl GuestsValidator {
         match auth_with(&client, &endpoint, Some(0), None, 30).await {
             Ok(auth) => {
                 let ctx = "up only (0 Kbps)";
-                // We do not assert pass/fail here beyond qos_overwrite presence; we report observed values.
+                // We do not assert pass/fail here beyond qos_overwrite presence; we report observed
+                // values.
                 if let Some(qos) = auth.get("qos_rate_max_up").and_then(|v| v.as_i64()) {
                     println!("ℹ️ {}: controller returned qos_rate_max_up={}", ctx, qos);
                 } else {
