@@ -2,6 +2,7 @@
 name = "unifi-client"
 version = "0.3.2"
 edition = "2021"
+rust-version = "1.74"
 authors = ["Frank Hinek <frankhinek@users.noreply.github.com>"]
 description = "Rust client library for UniFi Controller API"
 repository = "https://github.com/fedibtc/unifi-client"
