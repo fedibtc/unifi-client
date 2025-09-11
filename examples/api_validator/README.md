@@ -1,12 +1,15 @@
 # UniFi API Validator
 
-This example demonstrates how to validate the UniFi API responses by testing various endpoints and their expected behaviors.
+This example demonstrates how to validate the UniFi API responses by testing various endpoints and
+their expected behaviors.
 
 ## Features
 
-- Validates voucher creation and retrieval
-- Validates site information retrieval
-- Supports testing specific components or all components at once
+- Command-driven validations for Guests and Sites
+- Guest authorization flows: authorize, list, unauthorize
+- Parameter handling: minutes range, MAC formats, data quota (bytes), speed limits (Kbps)
+- Site endpoints: site info and list sites
+- Clear pass/fail output with helpful context per check
 
 ## Usage
 
@@ -14,11 +17,11 @@ This example demonstrates how to validate the UniFi API responses by testing var
 # Basic usage with all validations
 cargo run --example api_validator -- -c https://your-controller:8443 -u your-username -p your-password
 
-# Run only voucher validations
-cargo run --example api_validator -- -c https://your-controller:8443 -u your-username -p your-password voucher
+# Run only guest authorization validations
+cargo run --example api_validator -- -c https://your-controller:8443 -u your-username -p your-password guests
 
 # Run only site validations
-cargo run --example api_validator -- -c https://your-controller:8443 -u your-username -p your-password site
+cargo run --example api_validator -- -c https://your-controller:8443 -u your-username -p your-password sites
 ```
 
 ## Arguments
@@ -27,35 +30,21 @@ cargo run --example api_validator -- -c https://your-controller:8443 -u your-use
 - `-u, --username`: Your UniFi controller username
 - `-p, --password`: Your UniFi controller password
 - `--command`: Optional subcommand to run specific validations:
-  - `voucher`: Run only voucher validations
-  - `site`: Run only site validations
+  - `guests`: Run only guest authorization validations
+  - `sites`: Run only site validations
   - `all`: Run all validations (default)
 
 ## Validations
 
-### Voucher Validations
-- Tests voucher creation with simple duration (30 minutes)
-- Tests voucher creation with hour-based duration (5 hours)
-- Validates voucher retrieval and duration values
+### Guest Validations (`guests.rs`)
+- Authorize with simple duration: verifies timestamps, exact duration, and core fields.
+- List guests: ensures array response and validates required fields for each entry.
+- Unauthorize guest: confirms request succeeds and returns an empty array.
+- Minutes parameter range: exercises negative, zero, and large values; reports acceptance and any controller adjustments.
+- MAC address formats: accepts standard, no-separator, hyphenated, uppercase, mixed-case; explores edge cases and normalization.
+- Data quota (bytes): sets `qos_usage_quota`, checks `qos_overwrite` presence/boolean, validates exact byte quota; also tests alongside `minutes`.
+- Speed limits (Kbps): validates `up` and `down` independently and together; asserts `qos_overwrite=true`; checks exact numeric matches for `qos_rate_max_up`/`qos_rate_max_down`; documents behavior for zero and negative values.
 
-### Site Validations
-- Tests site information retrieval
-- Validates site name field presence
-
-## Example Output
-
-
-```bash
-# Run voucher validator
-cargo run --example api_validator -- -c https://your-controller:8443 -n your-username -p your-password voucher
-
-Running voucher validator...
-Testing voucher with simple duration...
-✅ Simple 'expire' duration test passed (30 minutes)
-Testing voucher with minute unit...
-✅ Minute unit duration test passed (5 minutes = 300 seconds)
-Testing voucher with hour unit...
-✅ Hour unit duration test passed (5 hours = 18000 seconds)
-Testing voucher note...
-✅ Voucher note test passed
-```
+### Site Validations (`sites.rs`)
+- Site info: verifies structure and `name` field presence.
+- List sites: validates array response and reports empty vs. non-empty.
