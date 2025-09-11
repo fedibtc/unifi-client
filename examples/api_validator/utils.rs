@@ -1,8 +1,8 @@
-use rand::{rng, Rng};
+use rand::Rng;
 
 /// Generate a random MAC address in the format "00:11:22:33:44:55"
 pub fn random_mac() -> String {
-    let mut rng = rng();
+    let mut rng = rand::rng();
     let mut mac = String::with_capacity(17);
 
     for i in 0..6 {
