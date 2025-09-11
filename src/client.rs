@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, COOKIE};
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use reqwest::{Client as ReqwestClient, Method, StatusCode};
 use secrecy::{ExposeSecret, SecretString};
 use serde::de::DeserializeOwned;
@@ -14,7 +14,7 @@ use tokio::sync::RwLock;
 use url::Url;
 
 use crate::api::guests;
-use crate::models::{ApiResponse, EmptyResponse};
+use crate::models::ApiResponse;
 use crate::{models, UniFiError, UniFiResult};
 
 static UNIFI_CLIENT: Lazy<ArcSwap<UniFiClient>> = Lazy::new(|| {
@@ -172,7 +172,6 @@ impl UniFiClientBuilder {
 /// Authentication state for the client.
 #[derive(Clone, Debug)]
 struct AuthState {
-    cookies: SecretString,
     csrf_token: Option<SecretString>,
 }
 
@@ -294,23 +293,21 @@ impl UniFiClient {
             )));
         }
 
-        let cookie_header = response
-            .headers()
-            .get("set-cookie")
-            .ok_or_else(|| {
-                UniFiError::AuthenticationError("No cookies received from server".into())
-            })?
-            .to_str()
-            .map_err(|e| UniFiError::AuthenticationError(format!("Invalid cookie header: {}", e)))?
-            .to_string();
+        // Ensure a cookie was set
+        if response.headers().get("set-cookie").is_none() {
+            return Err(UniFiError::AuthenticationError(
+                "No cookies received from server".into(),
+            ));
+        }
 
+        // Capture CSRF token
         let csrf_token = response
             .headers()
             .get("x-csrf-token")
-            .map(|v| v.to_str().unwrap_or_default().to_string());
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string());
 
-        let login_response: ApiResponse<Vec<EmptyResponse>> = response.json().await?;
-
+        let login_response: ApiResponse<Value> = response.json().await?;
         if login_response.meta.rc != "ok" {
             return Err(UniFiError::AuthenticationError(
                 login_response
@@ -320,12 +317,13 @@ impl UniFiClient {
             ));
         }
 
-        let mut auth_state = self.auth_state.write().await;
-        *auth_state = Some(AuthState {
-            cookies: SecretString::from(cookie_header),
-            csrf_token: csrf_token.map(|token| SecretString::from(token)),
-        });
-
+        // Persist auth state (CSRF if present).
+        {
+            let mut auth_state = self.auth_state.write().await;
+            *auth_state = Some(AuthState {
+                csrf_token: csrf_token.map(SecretString::from),
+            });
+        }
         Ok(())
     }
 
@@ -376,10 +374,6 @@ impl UniFiClient {
         let auth_state = auth_state.as_ref().ok_or(UniFiError::NotAuthenticated)?;
 
         let mut headers = HeaderMap::new();
-        let mut cookie = HeaderValue::from_str(auth_state.cookies.expose_secret())
-            .map_err(|e| UniFiError::ApiError(format!("Invalid cookie header: {}", e)))?;
-        cookie.set_sensitive(true);
-        headers.insert(COOKIE, cookie);
 
         if let Some(token) = &auth_state.csrf_token {
             let mut csrf_token = HeaderValue::from_str(token.expose_secret())
