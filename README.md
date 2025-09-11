@@ -237,8 +237,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Compatibility
 
+### UniFi
+
 This library has been tested with:
 - UniFi Controller version 9.x
+
+### Minimum Supported Rust Version (MSRV)
+
+- MSRV: Rust 1.74.0 (edition 2021)
+
+We set `rust-version = "1.74"` in `Cargo.toml`. Downstream crates can remain on older editions (e.g., 2018/2021); they just need a toolchain new enough to compile this crate.
 
 ## Contributing
 
