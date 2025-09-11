@@ -2,6 +2,7 @@ use std::env;
 use std::error::Error;
 use std::io::{self, Write};
 
+use chrono::{DateTime, Utc};
 use env_logger;
 use unifi_client::models::guests::GuestEntry;
 use unifi_client::UniFiClient;
@@ -68,18 +69,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 } else {
                     println!("\nFound {} active guests:", active_guests.len());
                     println!(
-                        "{:<26} {:<20} {:<12} {:<12}",
-                        "ID", "MAC", "Status", "Authorized By"
+                        "{:<26} {:<20} {:<12} {:<30}",
+                        "ID", "MAC", "Status", "Expires At (UTC)"
                     );
                     println!("{}", "-".repeat(80));
 
                     for guest in active_guests {
+                        let expires_timestamp = guest.expires_at();
+                        let expires_dt =
+                            DateTime::<Utc>::from_timestamp(expires_timestamp as i64, 0)
+                                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                                .unwrap_or_else(|| "Invalid timestamp".to_string());
                         println!(
-                            "{:<26} {:<20} {:<12} {:<12}",
+                            "{:<26} {:<20} {:<12} {:<30}",
                             guest.id(),
                             guest.mac(),
                             "Active",
-                            guest.authorized_by(),
+                            expires_dt,
                         );
                     }
                 }

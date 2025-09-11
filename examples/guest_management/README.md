@@ -25,7 +25,7 @@ export UNIFI_SITE="default"
 export UNIFI_VERIFY_SSL="false"
 
 # Run the example
-cargo run --example guest_management
+cargo run
 ```
 
 ### Running with Prompts
@@ -34,7 +34,7 @@ If environment variables are not set, the example will use defaults and prompt
 for the password:
 
 ```bash
-cargo run --example guest_management
+cargo run
 ```
 
 ## Environment Variables
@@ -58,7 +58,7 @@ cargo run --example guest_management
 ## Example Output
 
 ```bash
-UNIFI_CONTROLLER="https://unifi.example.com:8443" UNIFI_USERNAME="admin" UNIFI_PASSWORD="password" cargo run --example guest_management
+UNIFI_CONTROLLER="https://unifi.example.com:8443" UNIFI_USERNAME="admin" UNIFI_PASSWORD="password" UNIFI_SITE="default" cargo run
 
 UniFi Guest Management Example
 ==============================
@@ -67,21 +67,22 @@ Site: default
 ✅ Authentication successful!
 
 Guest Management Options:
-1. List Guests
-2. Authorize Guest
-3. Unauthorize Guest
-4. Unauthorize All Guests
-5. Exit
+1. List Active Guests
+2. List Expired Guests
+3. Authorize Guest
+4. Unauthorize Guest
+5. Unauthorize All Guests
+6. Exit
 
-Select an option (1-5): 1
+Select an option (1-6): 1
 
-Fetching guests...
+Fetching active guests...
 
-Found 2 guests:
-ID         MAC                 Status      Authorized By
+Found 2 active guests:
+ID         MAC                 Status       Expires At (UTC)
 --------------------------------------------------------------------------------
-00112233   00:11:22:33:44:55  Active      api
-aabbccdd   aa:bb:cc:dd:ee:ff  Expired     api
+00112233   00:11:22:33:44:55   Active       2025-09-12 17:35:14 UTC
+aabbccdd   aa:bb:cc:dd:ee:ff   Expired      2025-09-11 18:46:21 UTC
 ```
 
 ## Notes
