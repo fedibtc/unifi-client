@@ -29,9 +29,29 @@ impl SitesValidator {
         Ok(())
     }
 
+    async fn validate_list_sites(&self) -> UniFiResult<()> {
+        let client = self.client.clone();
+        let endpoint = format!("/api/stat/sites");
+
+        let sites: Value = client.raw_request("GET", &endpoint, None::<()>).await?;
+
+        if let Some(sites_array) = sites.as_array() {
+            if !sites_array.is_empty() {
+                println!("✅ List sites test passed");
+            } else {
+                println!("No sites found.");
+            }
+        } else {
+            println!("❌ List sites test failed: could not parse site list");
+        }
+
+        Ok(())
+    }
+
     pub async fn run_all_validations(&self) -> UniFiResult<()> {
         println!("Running site validator...");
         self.validate_site_info().await?;
+        self.validate_list_sites().await?;
         Ok(())
     }
 }
