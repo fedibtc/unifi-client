@@ -308,7 +308,7 @@ impl GuestsValidator {
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
 
-        println!("Testing MAC address format acceptance...");
+        println!("\nTesting MAC address format acceptance...");
 
         // Generate a random MAC in standard format
         let standard_mac = random_mac(); // This is colon-separated: 00:11:22:33:44:55
@@ -448,6 +448,398 @@ impl GuestsValidator {
         Ok(())
     }
 
+    async fn validate_bytes_parameter(&self) -> UniFiResult<()> {
+        let client = self.client.clone();
+        let site = self.client.site();
+        let endpoint = format!("/api/s/{}/cmd/stamgr", site);
+
+        println!("\nTesting bytes parameter for guest authorization...");
+
+        // Test various byte limits
+        let test_values = [
+            (-1000, "negative bytes"),
+            (1, "1 MB"),
+            (10, "10 MB"),
+            (100, "100 MB"),
+            (500, "500 MB"),
+            (1_000, "1 GB"),
+            (5_000, "5 GB"),
+            (10_000, "10 GB"),
+            (50_000, "50 GB"),
+            (100_000, "100 GB"),
+            (0, "zero bytes"),
+        ];
+
+        for (bytes, description) in &test_values {
+            let test_mac = random_mac();
+
+            // Create authorization request with bytes instead of minutes
+            let payload = serde_json::json!({
+                "cmd": "authorize-guest",
+                "mac": test_mac,
+                "bytes": bytes,
+            });
+
+            // Make raw API call and check if it succeeds
+            let result = client.raw_request("POST", &endpoint, Some(payload)).await;
+
+            match result {
+                Ok(response) => {
+                    if let Some(auth) = response.as_array().and_then(|arr| arr.first()) {
+                        // Check if the response indicates success
+                        if auth["qos_usage_quota"].is_number() {
+                            // Ensure QoS overwrite is enabled
+                            if let Some(qos_overwritten) = auth["qos_overwrite"].as_bool() {
+                                if qos_overwritten == false {
+                                    println!(
+                                        "⚠️ Bytes = {}: {} accepted but QoS overwrite was disabled: {}",
+                                        bytes, description, qos_overwritten
+                                    );
+                                }
+                            } else {
+                                println!(
+                                    "⚠️ Bytes = {}: {} accepted but no qos_overwrite in response",
+                                    bytes, description
+                                );
+                                continue;
+                            };
+                            // Ensure bytes limit was accepted
+                            if let Some(usage_quota) = auth["qos_usage_quota"].as_i64() {
+                                let expected_bytes = if *bytes < 0 { 0 } else { *bytes };
+                                if usage_quota == expected_bytes {
+                                    println!(
+                                        "✅ Bytes = {}: {} accepted with correct limit",
+                                        bytes, description
+                                    );
+                                } else {
+                                    println!(
+                                        "⚠️ Bytes = {}: {} accepted but with adjusted/invalid limit: {}",
+                                        bytes, description, usage_quota
+                                    );
+                                }
+                            } else {
+                                println!(
+                                    "⚠️ Bytes = {}: {} accepted but no quota in response",
+                                    bytes, description
+                                );
+                            }
+                        } else {
+                            println!(
+                                "❌ Bytes = {}: {} failed - unexpected response structure",
+                                bytes, description
+                            );
+                        }
+                    } else {
+                        println!(
+                            "❌ Bytes = {}: {} failed - empty or invalid response",
+                            bytes, description
+                        );
+                    }
+                }
+                Err(e) => {
+                    println!(
+                        "❌ Bytes = {}: {} rejected with error: {}",
+                        bytes, description, e
+                    );
+                }
+            }
+
+            // Add a small delay between requests
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        }
+
+        // Test combining bytes with minutes
+        println!("\nTesting combination of bytes and minutes parameters...");
+
+        let test_mac = random_mac();
+        let payload = serde_json::json!({
+            "cmd": "authorize-guest",
+            "mac": test_mac,
+            "minutes": 60,
+            "bytes": 100, // 100 MB
+        });
+
+        let result = client.raw_request("POST", &endpoint, Some(payload)).await;
+
+        match result {
+            Ok(response) => {
+                if let Some(auth) = response.as_array().and_then(|arr| arr.first()) {
+                    if auth["_id"].is_string() {
+                        let has_time_limit = auth["end"].is_u64() && auth["start"].is_u64();
+                        let has_byte_limit = auth["qos_usage_quota"].is_number();
+
+                        if has_time_limit && has_byte_limit {
+                            println!("✅ Combined bytes + minutes: Both limits applied");
+                        } else if has_time_limit {
+                            println!("⚠️ Combined bytes + minutes: Only time limit applied");
+                        } else if has_byte_limit {
+                            println!("⚠️ Combined bytes + minutes: Only byte limit applied");
+                        } else {
+                            println!("❌ Combined bytes + minutes: Neither limit detected");
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                println!("❌ Combined bytes + minutes rejected: {}", e);
+            }
+        }
+
+        println!("Bytes parameter testing complete");
+        Ok(())
+    }
+
+    async fn validate_speed_limits(&self) -> UniFiResult<()> {
+        let client = self.client.clone();
+        let site = self.client.site();
+        let endpoint = format!("/api/s/{}/cmd/stamgr", site);
+
+        println!("\nTesting speed limits (Kbps) for guest authorization...");
+
+        // Helper to perform an authorization and return first array entry
+        async fn auth_with(
+            client: &UniFiClient,
+            endpoint: &str,
+            up: Option<i64>,
+            down: Option<i64>,
+            minutes: i64,
+        ) -> UniFiResult<Value> {
+            let mac = random_mac();
+            let mut payload = serde_json::json!({
+                "cmd": "authorize-guest",
+                "mac": mac,
+                "minutes": minutes,
+            });
+
+            if let Some(u) = up { payload["up"] = serde_json::json!(u); }
+            if let Some(d) = down { payload["down"] = serde_json::json!(d); }
+
+            let response: Value = client
+                .raw_request("POST", endpoint, Some(payload))
+                .await?;
+
+            if let Some(first) = response.as_array().and_then(|a| a.first()).cloned() {
+                Ok(first)
+            } else {
+                Ok(response)
+            }
+        }
+
+        // Verify a response contains qos_overwrite true and optional exact matches
+        fn check_qos(
+            context: &str,
+            auth: &Value,
+            expect_up: Option<i64>,
+            expect_down: Option<i64>,
+        ) {
+            let mut passed = true;
+
+            // qos_overwrite must be present and true
+            match auth.get("qos_overwrite").and_then(|v| v.as_bool()) {
+                Some(true) => { /* ok */ }
+                Some(false) => {
+                    println!("❌ {}: qos_overwrite present but false", context);
+                    passed = false;
+                }
+                None => {
+                    println!("❌ {}: qos_overwrite missing or not a boolean", context);
+                    passed = false;
+                }
+            }
+
+            // If up was requested, ensure qos_rate_max_up matches exactly
+            if let Some(expected) = expect_up {
+                match auth.get("qos_rate_max_up").and_then(|v| v.as_i64()) {
+                    Some(v) if v == expected => { /* ok */ }
+                    Some(v) => {
+                        println!(
+                            "❌ {}: qos_rate_max_up mismatch. expected={}, got={}",
+                            context, expected, v
+                        );
+                        passed = false;
+                    }
+                    None => {
+                        println!(
+                            "❌ {}: qos_rate_max_up missing or not a number",
+                            context
+                        );
+                        passed = false;
+                    }
+                }
+            }
+
+            // If down was requested, ensure qos_rate_max_down matches exactly
+            if let Some(expected) = expect_down {
+                match auth.get("qos_rate_max_down").and_then(|v| v.as_i64()) {
+                    Some(v) if v == expected => { /* ok */ }
+                    Some(v) => {
+                        println!(
+                            "❌ {}: qos_rate_max_down mismatch. expected={}, got={}",
+                            context, expected, v
+                        );
+                        passed = false;
+                    }
+                    None => {
+                        println!(
+                            "❌ {}: qos_rate_max_down missing or not a number",
+                            context
+                        );
+                        passed = false;
+                    }
+                }
+            }
+
+            if passed {
+                println!("✅ {}: speed limit settings applied as expected", context);
+            }
+        }
+
+        // Independent tests
+        // up only
+        match auth_with(&client, &endpoint, Some(500), None, 60).await {
+            Ok(auth) => check_qos("up only (500 Kbps)", &auth, Some(500), None),
+            Err(e) => println!("❌ up only request failed: {}", e),
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+        // down only
+        match auth_with(&client, &endpoint, None, Some(700), 60).await {
+            Ok(auth) => check_qos("down only (700 Kbps)", &auth, None, Some(700)),
+            Err(e) => println!("❌ down only request failed: {}", e),
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+        // both up and down
+        match auth_with(&client, &endpoint, Some(400), Some(800), 60).await {
+            Ok(auth) => check_qos(
+                "both up=400 Kbps, down=800 Kbps",
+                &auth,
+                Some(400),
+                Some(800),
+            ),
+            Err(e) => println!("❌ up+down request failed: {}", e),
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+        // Document behavior for zero values
+        println!("\nObserving behavior for zero values (treated by controller as-is or clamped). Units are Kbps.");
+        match auth_with(&client, &endpoint, Some(0), None, 30).await {
+            Ok(auth) => {
+                let ctx = "up only (0 Kbps)";
+                // We do not assert pass/fail here beyond qos_overwrite presence; we report observed values.
+                if let Some(qos) = auth.get("qos_rate_max_up").and_then(|v| v.as_i64()) {
+                    println!("ℹ️ {}: controller returned qos_rate_max_up={}", ctx, qos);
+                } else {
+                    println!("ℹ️ {}: controller did not return qos_rate_max_up", ctx);
+                }
+                match auth.get("qos_overwrite").and_then(|v| v.as_bool()) {
+                    Some(true) => println!("✅ {}: qos_overwrite=true", ctx),
+                    Some(false) => println!("⚠️ {}: qos_overwrite=false", ctx),
+                    None => println!("⚠️ {}: qos_overwrite missing", ctx),
+                }
+            }
+            Err(e) => println!("❌ up=0 request failed: {}", e),
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+        match auth_with(&client, &endpoint, None, Some(0), 30).await {
+            Ok(auth) => {
+                let ctx = "down only (0 Kbps)";
+                if let Some(qos) = auth.get("qos_rate_max_down").and_then(|v| v.as_i64()) {
+                    println!("ℹ️ {}: controller returned qos_rate_max_down={}", ctx, qos);
+                } else {
+                    println!("ℹ️ {}: controller did not return qos_rate_max_down", ctx);
+                }
+                match auth.get("qos_overwrite").and_then(|v| v.as_bool()) {
+                    Some(true) => println!("✅ {}: qos_overwrite=true", ctx),
+                    Some(false) => println!("⚠️ {}: qos_overwrite=false", ctx),
+                    None => println!("⚠️ {}: qos_overwrite missing", ctx),
+                }
+            }
+            Err(e) => println!("❌ down=0 request failed: {}", e),
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+        // Document behavior for negative values
+        println!("\nObserving behavior for negative values (controller may clamp or reject). Units are Kbps.");
+        match auth_with(&client, &endpoint, Some(-500), None, 30).await {
+            Ok(auth) => {
+                let ctx = "up only (-500 Kbps)";
+                if let Some(qos) = auth.get("qos_rate_max_up").and_then(|v| v.as_i64()) {
+                    println!("ℹ️ {}: controller returned qos_rate_max_up={}", ctx, qos);
+                } else {
+                    println!("ℹ️ {}: controller did not return qos_rate_max_up", ctx);
+                }
+                match auth.get("qos_overwrite").and_then(|v| v.as_bool()) {
+                    Some(true) => println!("✅ {}: qos_overwrite=true", ctx),
+                    Some(false) => println!("⚠️ {}: qos_overwrite=false", ctx),
+                    None => println!("⚠️ {}: qos_overwrite missing", ctx),
+                }
+            }
+            Err(e) => println!("❌ up=-500 request failed: {}", e),
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+        match auth_with(&client, &endpoint, None, Some(-500), 30).await {
+            Ok(auth) => {
+                let ctx = "down only (-500 Kbps)";
+                if let Some(qos) = auth.get("qos_rate_max_down").and_then(|v| v.as_i64()) {
+                    println!("ℹ️ {}: controller returned qos_rate_max_down={}", ctx, qos);
+                } else {
+                    println!("ℹ️ {}: controller did not return qos_rate_max_down", ctx);
+                }
+                match auth.get("qos_overwrite").and_then(|v| v.as_bool()) {
+                    Some(true) => println!("✅ {}: qos_overwrite=true", ctx),
+                    Some(false) => println!("⚠️ {}: qos_overwrite=false", ctx),
+                    None => println!("⚠️ {}: qos_overwrite missing", ctx),
+                }
+            }
+            Err(e) => println!("❌ down=-500 request failed: {}", e),
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+        // Combined zero/negative for completeness
+        match auth_with(&client, &endpoint, Some(0), Some(0), 30).await {
+            Ok(auth) => {
+                let ctx = "both up=0, down=0";
+                if let Some(v) = auth.get("qos_rate_max_up").and_then(|v| v.as_i64()) {
+                    println!("ℹ️ {}: qos_rate_max_up={}", ctx, v);
+                }
+                if let Some(v) = auth.get("qos_rate_max_down").and_then(|v| v.as_i64()) {
+                    println!("ℹ️ {}: qos_rate_max_down={}", ctx, v);
+                }
+                match auth.get("qos_overwrite").and_then(|v| v.as_bool()) {
+                    Some(true) => println!("✅ {}: qos_overwrite=true", ctx),
+                    Some(false) => println!("⚠️ {}: qos_overwrite=false", ctx),
+                    None => println!("⚠️ {}: qos_overwrite missing", ctx),
+                }
+            }
+            Err(e) => println!("❌ up=0,down=0 request failed: {}", e),
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+        match auth_with(&client, &endpoint, Some(-250), Some(-250), 30).await {
+            Ok(auth) => {
+                let ctx = "both up=-250, down=-250";
+                if let Some(v) = auth.get("qos_rate_max_up").and_then(|v| v.as_i64()) {
+                    println!("ℹ️ {}: qos_rate_max_up={}", ctx, v);
+                }
+                if let Some(v) = auth.get("qos_rate_max_down").and_then(|v| v.as_i64()) {
+                    println!("ℹ️ {}: qos_rate_max_down={}", ctx, v);
+                }
+                match auth.get("qos_overwrite").and_then(|v| v.as_bool()) {
+                    Some(true) => println!("✅ {}: qos_overwrite=true", ctx),
+                    Some(false) => println!("⚠️ {}: qos_overwrite=false", ctx),
+                    None => println!("⚠️ {}: qos_overwrite missing", ctx),
+                }
+            }
+            Err(e) => println!("❌ up=-250,down=-250 request failed: {}", e),
+        }
+
+        println!("Speed limit testing complete");
+        Ok(())
+    }
+
     pub async fn run_all_validations(&self) -> UniFiResult<()> {
         println!("Running guest validator...");
         self.validate_authorize_simple_duration().await?;
@@ -455,6 +847,8 @@ impl GuestsValidator {
         self.validate_unauthorize().await?;
         self.validate_minutes_parameter_range().await?;
         self.validate_mac_address_formats().await?;
+        self.validate_bytes_parameter().await?;
+        self.validate_speed_limits().await?;
         Ok(())
     }
 }
