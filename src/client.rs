@@ -515,22 +515,14 @@ impl UniFiClient {
     where
         T: Serialize,
     {
-        self.ensure_authenticated().await?;
+        let response = self
+            .send_http(
+                Method::from_bytes(method.as_bytes()).unwrap_or(Method::GET),
+                endpoint,
+                body,
+            )
+            .await?;
 
-        let url = self.api_url(endpoint)?;
-
-        let mut request = self.http_client.request(
-            Method::from_bytes(method.as_bytes()).unwrap_or(Method::GET),
-            url,
-        );
-
-        request = request.headers(self.get_auth_headers().await?);
-
-        if let Some(data) = body {
-            request = request.json(&data).header(CONTENT_TYPE, "application/json");
-        }
-
-        let response = request.send().await?;
         let api_response: ApiResponse<Value> = response.json().await?;
 
         if api_response.meta.rc != "ok" {
@@ -556,20 +548,7 @@ impl UniFiClient {
         T: Serialize,
         R: DeserializeOwned,
     {
-        self.ensure_authenticated().await?;
-
-        let url = self.api_url(endpoint)?;
-
-        let mut request = self.http_client.request(method, url);
-
-        request = request.headers(self.get_auth_headers().await?);
-
-        // Add JSON body if provided
-        if let Some(data) = body {
-            request = request.json(&data).header(CONTENT_TYPE, "application/json");
-        }
-
-        let response = request.send().await?;
+        let response = self.send_http(method, endpoint, body).await?;
 
         if response.status() == StatusCode::UNAUTHORIZED {
             return Err(UniFiError::NotAuthenticated);
@@ -601,9 +580,51 @@ impl UniFiClient {
 }
 
 impl UniFiClient {
-    /// Build the absolute URL for an API endpoint using path segments.
+    /// Core HTTP sender used by raw_request() and request().
     ///
-    /// This approach avoids trailing slash pitfalls.
+    /// - Ensures authentication
+    /// - Builds the URL from `api_base_url` + endpoint
+    /// - Applies auth and CSRF headers
+    /// - Sends the request and updates CSRF token from response headers (if present)
+    async fn send_http<T>(
+        &self,
+        method: Method,
+        endpoint: &str,
+        body: Option<T>,
+    ) -> UniFiResult<reqwest::Response>
+    where
+        T: Serialize,
+    {
+        self.ensure_authenticated().await?;
+
+        let url = self.api_url(endpoint)?;
+        let mut request = self.http_client.request(method, url);
+
+        request = request.headers(self.get_auth_headers().await?);
+
+        if let Some(data) = body {
+            request = request.json(&data).header(CONTENT_TYPE, "application/json");
+        }
+
+        let response = request.send().await?;
+
+        // Refresh CSRF token if the server rotated it
+        if let Some(updated) = response
+            .headers()
+            .get("x-updated-csrf-token")
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string())
+        {
+            let mut auth_state = self.auth_state.write().await;
+            if let Some(state) = auth_state.as_mut() {
+                state.csrf_token = Some(SecretString::from(updated));
+            }
+        }
+
+        Ok(response)
+    }
+
+    // Build the URL for an API endpoint using path segments to avoid trailing slash issues.
     fn api_url(&self, endpoint: &str) -> UniFiResult<Url> {
         let mut url = self.api_base_url.clone();
         {
