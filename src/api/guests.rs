@@ -77,7 +77,7 @@ impl GuestHandler {
     /// #
     /// # async fn example(client: &UniFiClient) -> Result<(), unifi_client::UniFiError> {
     /// // Get all guest authorizations from the past 24 hours
-    /// let guests = client.guests().list().within(24).send().await?;
+    /// let guests = client.guests().list().within_hours(24).send().await?;
     ///
     /// for guest in guests {
     ///     println!("Guest {}: expires at {}", guest.mac(), guest.expires_at());
@@ -245,26 +245,30 @@ impl AuthorizeGuestBuilder {
 #[derive(Debug, Clone)]
 pub struct ListGuestsBuilder {
     client: UniFiClient,
-    within: Option<u32>,
+    within_hours: Option<u32>,
 }
 
 impl ListGuestsBuilder {
     pub(crate) fn new(client: UniFiClient) -> Self {
         Self {
             client,
-            within: None,
+            within_hours: None,
         }
     }
-    pub fn within(mut self, within: u32) -> Self {
-        self.within = Some(within);
+
+    /// Limit results to the past `hours` hours.
+    /// Defaults to “all time” if not set.
+    pub fn within_hours(mut self, hours: u32) -> Self {
+        self.within_hours = Some(hours);
         self
     }
 
     pub async fn send(self) -> UniFiResult<Vec<models::guests::GuestEntry>> {
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/stat/guest", site);
+
         let params = self
-            .within
+            .within_hours
             .map(|hours| serde_json::json!({ "within": hours }));
 
         self.client.request(Method::GET, &endpoint, params).await
