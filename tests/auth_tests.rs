@@ -329,7 +329,7 @@ mod unifi_os {
     }
 
     #[tokio::test]
-    async fn test_login_no_cookies_unifi_os() {
+    async fn test_login_no_cookies() {
         let mock_server = MockServer::start().await;
 
         // Probe as UniFi OS
