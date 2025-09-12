@@ -3,10 +3,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use arc_swap::ArcSwap;
+use http::Method;
 use once_cell::sync::Lazy;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use reqwest::redirect::Policy;
-use reqwest::{Client as ReqwestClient, Method, StatusCode};
+use reqwest::{Client as ReqwestClient, StatusCode};
 use secrecy::{ExposeSecret, SecretString};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -481,8 +482,9 @@ impl UniFiClient {
     /// # Examples
     ///
     /// ```no_run
-    /// # use unifi_client::{UniFiClient, UniFiError};
+    /// # use reqwest::Method;
     /// # use serde_json::Value;
+    /// # use unifi_client::{UniFiClient, UniFiError};
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), UniFiError> {
     /// // You MUST initialize the client *before* using instance().
@@ -499,7 +501,7 @@ impl UniFiClient {
     /// // Get system status with a raw request.
     /// // The result is a serde_json::Value.
     /// let status: Value = unifi_client::instance()
-    ///     .raw_request("GET", "/api/s/default/stat/sysinfo", None::<()>)
+    ///     .raw_request(Method::GET, "/api/s/default/stat/sysinfo", None::<()>)
     ///     .await?;
     ///
     /// println!("System info: {:?}", status);
@@ -508,20 +510,14 @@ impl UniFiClient {
     /// ```
     pub async fn raw_request<T>(
         &self,
-        method: &str,
+        method: Method,
         endpoint: &str,
         body: Option<T>,
     ) -> UniFiResult<Value>
     where
         T: Serialize,
     {
-        let response = self
-            .send_http(
-                Method::from_bytes(method.as_bytes()).unwrap_or(Method::GET),
-                endpoint,
-                body,
-            )
-            .await?;
+        let response = self.send_http(method, endpoint, body).await?;
 
         let api_response: ApiResponse<Value> = response.json().await?;
 
