@@ -5,6 +5,7 @@ use std::time::Duration;
 use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+use reqwest::redirect::Policy;
 use reqwest::{Client as ReqwestClient, Method, StatusCode};
 use secrecy::{ExposeSecret, SecretString};
 use serde::de::DeserializeOwned;
@@ -145,6 +146,7 @@ impl UniFiClientBuilder {
             ReqwestClient::builder()
                 .timeout(timeout)
                 .danger_accept_invalid_certs(!self.verify_ssl)
+                .redirect(Policy::none())
                 .cookie_store(true)
                 .user_agent(user_agent)
                 .build()
@@ -153,8 +155,35 @@ impl UniFiClientBuilder {
                 })?
         };
 
+        // Detect controller kind with a lightweight HEAD request to '/'
+        let probe_url = controller_url
+            .join("/")
+            .map_err(|e| UniFiError::UrlParseError(e))?;
+        let probe_status = http_client
+            .head(probe_url)
+            .send()
+            .await
+            .map(|r| r.status())
+            .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+
+        // UniFi OS servers return 200, UniFi Network controllers return 304 redirects.
+        let controller_kind = if probe_status == StatusCode::OK {
+            ControllerKind::Os
+        } else {
+            ControllerKind::Network
+        };
+
+        let api_base_url = match controller_kind {
+            ControllerKind::Os => controller_url
+                .join("/proxy/network")
+                .map_err(UniFiError::UrlParseError)?,
+            ControllerKind::Network => controller_url.clone(),
+        };
+
         let client = UniFiClient {
+            controller_kind,
             controller_url,
+            api_base_url,
             username,
             password: Some(password),
             site,
@@ -164,6 +193,8 @@ impl UniFiClientBuilder {
             http_client,
             auth_state: Arc::new(RwLock::new(None)),
         };
+
+        // Perform initial login now that controller kind is known.
         client.login().await?;
         Ok(client)
     }
@@ -175,13 +206,21 @@ struct AuthState {
     csrf_token: Option<SecretString>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ControllerKind {
+    Network,
+    Os,
+}
+
 /// The UniFi client for interacting with the UniFi Controller API.
 ///
 /// This client manages authentication, request handling, and provides access
 /// to the various API endpoints through dedicated API handlers.
 #[derive(Clone)]
 pub struct UniFiClient {
+    controller_kind: ControllerKind,
     controller_url: Url,
+    api_base_url: Url,
     username: String,
     password: Option<SecretString>,
     site: String,
@@ -200,7 +239,9 @@ impl fmt::Debug for UniFiClient {
         };
 
         f.debug_struct("UniFiClient")
+            .field("controller_kind", &format!("{:?}", self.controller_kind))
             .field("controller_url", &self.controller_url.as_str())
+            .field("api_base_url", &self.api_base_url.as_str())
             .field("username", &self.username)
             .field("password", &self.password)
             .field("site", &self.site)
@@ -213,17 +254,27 @@ impl fmt::Debug for UniFiClient {
 }
 
 /// Defaults for UniFiClient:
+/// - `controller_kind`: `Network`
 /// - `controller_url`: `https://localhost:8443`
+/// - `api_base_url`: `https://localhost:8443`
 /// - `username`: `admin`
 /// - `password`: `admin`
 /// - `site`: `default`
 /// - `verify_ssl`: `false`
 /// - `timeout`: `30 seconds`
-/// - `http_client`: http client with the `unifi-client` user agent
+/// - `http_client`: bare `reqwest::Client::new()` (no cookie store configured)
+///
+/// Note: This Default is intended for local testing and debugging. For real use,
+/// construct a client via `UniFiClient::builder()`, which configures the HTTP
+/// client, detects controller kind, sets `api_base_url`, and performs the initial
+/// login.
 impl Default for UniFiClient {
     fn default() -> Self {
         UniFiClient {
+            controller_kind: ControllerKind::Network,
             controller_url: Url::parse("https://localhost:8443")
+                .expect("Failed to parse default URL"),
+            api_base_url: Url::parse("https://localhost:8443")
                 .expect("Failed to parse default URL"),
             username: "admin".to_string(),
             password: Some(SecretString::from("admin")),
@@ -269,9 +320,15 @@ impl UniFiClient {
             }
         };
 
+        // Choose login path based on pre-detected controller kind
+        let login_path = match self.controller_kind {
+            ControllerKind::Os => "/api/auth/login",
+            ControllerKind::Network => "/api/login",
+        };
+
         let login_url = self
             .controller_url
-            .join("/api/login")
+            .join(login_path)
             .map_err(|e| UniFiError::UrlParseError(e))?;
 
         let login_data = models::auth::LoginRequest {
@@ -293,28 +350,32 @@ impl UniFiClient {
             )));
         }
 
-        // Ensure a cookie was set
+        // Ensure a cookie was set (required for both Network and UniFi OS)
         if response.headers().get("set-cookie").is_none() {
             return Err(UniFiError::AuthenticationError(
                 "No cookies received from server".into(),
             ));
         }
 
-        // Capture CSRF token
+        // Capture CSRF token for UniFi OS
         let csrf_token = response
             .headers()
             .get("x-csrf-token")
             .and_then(|v| v.to_str().ok())
             .map(|s| s.to_string());
 
-        let login_response: ApiResponse<Value> = response.json().await?;
-        if login_response.meta.rc != "ok" {
-            return Err(UniFiError::AuthenticationError(
-                login_response
-                    .meta
-                    .msg
-                    .unwrap_or_else(|| "Unknown error".into()),
-            ));
+        // For UniFi Network, a JSON body with { meta: { rc: "ok" }, ... } is returned.
+        // For UniFi OS, the response is 200 with a body that does not follow that schema.
+        if self.controller_kind == ControllerKind::Network {
+            let login_response: ApiResponse<Value> = response.json().await?;
+            if login_response.meta.rc != "ok" {
+                return Err(UniFiError::AuthenticationError(
+                    login_response
+                        .meta
+                        .msg
+                        .unwrap_or_else(|| "Unknown error".into()),
+                ));
+            }
         }
 
         // Persist auth state (CSRF if present).
@@ -344,10 +405,7 @@ impl UniFiClient {
             return self.login().await;
         }
 
-        let url = self
-            .controller_url
-            .join("/api/self")
-            .map_err(|e| UniFiError::UrlParseError(e))?;
+        let url = self.api_url("/api/self")?;
 
         match self
             .http_client
@@ -459,10 +517,7 @@ impl UniFiClient {
     {
         self.ensure_authenticated().await?;
 
-        let url = self
-            .controller_url
-            .join(endpoint)
-            .map_err(|e| UniFiError::UrlParseError(e))?;
+        let url = self.api_url(endpoint)?;
 
         let mut request = self.http_client.request(
             Method::from_bytes(method.as_bytes()).unwrap_or(Method::GET),
@@ -503,10 +558,7 @@ impl UniFiClient {
     {
         self.ensure_authenticated().await?;
 
-        let url = self
-            .controller_url
-            .join(endpoint)
-            .map_err(|e| UniFiError::UrlParseError(e))?;
+        let url = self.api_url(endpoint)?;
 
         let mut request = self.http_client.request(method, url);
 
@@ -545,5 +597,91 @@ impl UniFiClient {
             Some(data) => Ok(data),
             None => Err(UniFiError::ApiError("No data returned from API".into())),
         }
+    }
+}
+
+impl UniFiClient {
+    /// Build the absolute URL for an API endpoint using path segments.
+    ///
+    /// This approach avoids trailing slash pitfalls.
+    fn api_url(&self, endpoint: &str) -> UniFiResult<Url> {
+        let mut url = self.api_base_url.clone();
+        {
+            let mut path_segments = url
+                .path_segments_mut()
+                .map_err(|_| UniFiError::ConfigurationError("Base URL cannot be a base".into()))?;
+            // Remove a trailing empty segment (e.g., ends with '/') to avoid creating '//'.
+            path_segments.pop_if_empty();
+            for s in endpoint.split('/').filter(|s| !s.is_empty()) {
+                path_segments.push(s);
+            }
+        }
+        Ok(url)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_client_with_api_base_url(api_base_url: &str, kind: ControllerKind) -> UniFiClient {
+        UniFiClient {
+            controller_kind: kind,
+            controller_url: Url::parse("https://example.com/").unwrap(),
+            api_base_url: Url::parse(api_base_url).unwrap(),
+            username: "user".into(),
+            password: Some(SecretString::from("pass")),
+            site: "default".into(),
+            verify_ssl: true,
+            timeout: Duration::from_secs(30),
+            user_agent: Some("unifi-client/test".into()),
+            http_client: reqwest::Client::new(),
+            auth_state: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    #[test]
+    fn api_url_network_preserves_base_and_appends_segments() {
+        let client = make_client_with_api_base_url("https://example.com/", ControllerKind::Network);
+
+        // Leading slash
+        let url = client.api_url("/api/s/default/stat/guest").unwrap();
+        assert_eq!(url.as_str(), "https://example.com/api/s/default/stat/guest");
+
+        // No leading slash
+        let url = client.api_url("api/self").unwrap();
+        assert_eq!(url.as_str(), "https://example.com/api/self");
+    }
+
+    #[test]
+    fn api_url_unifi_os_keeps_proxy_network_prefix() {
+        let client =
+            make_client_with_api_base_url("https://example.com/proxy/network/", ControllerKind::Os);
+
+        // Leading slash
+        let url = client.api_url("/api/s/default/stat/guest").unwrap();
+        assert_eq!(
+            url.as_str(),
+            "https://example.com/proxy/network/api/s/default/stat/guest"
+        );
+
+        // No leading slash
+        let url = client.api_url("api/self").unwrap();
+        assert_eq!(url.as_str(), "https://example.com/proxy/network/api/self");
+    }
+
+    #[test]
+    fn api_url_normalizes_redundant_slashes() {
+        let client =
+            make_client_with_api_base_url("https://example.com/proxy/network/", ControllerKind::Os);
+
+        // Multiple redundant slashes should be normalized by segment push
+        let url = client
+            .api_url("///api//s///default//stat///guest//")
+            .unwrap();
+        assert_eq!(
+            url.as_str(),
+            "https://example.com/proxy/network/api/s/default/stat/guest"
+        );
     }
 }
