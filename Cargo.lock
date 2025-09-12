@@ -1807,6 +1807,7 @@ dependencies = [
  "chrono",
  "clap",
  "env_logger",
+ "http",
  "log",
  "once_cell",
  "pretty_assertions",

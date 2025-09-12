@@ -1,3 +1,4 @@
+use http::Method;
 use serde_json::Value;
 use unifi_client::{UniFiClient, UniFiResult};
 
@@ -30,7 +31,9 @@ impl GuestsValidator {
         let endpoint = format!("/api/s/{}/cmd/stamgr", site);
 
         // Make raw API call
-        let response: Value = client.raw_request("POST", &endpoint, Some(payload)).await?;
+        let response: Value = client
+            .raw_request(Method::POST, &endpoint, Some(payload))
+            .await?;
 
         // Validate response structure and values
         if let Some(auth) = response.as_array().and_then(|arr| arr.first()) {
@@ -110,12 +113,14 @@ impl GuestsValidator {
 
         // Authorize the guest first
         let _: Value = client
-            .raw_request("POST", &endpoint, Some(auth_payload))
+            .raw_request(Method::POST, &endpoint, Some(auth_payload))
             .await?;
 
         // Get the list of guests
         let endpoint = format!("/api/s/{}/stat/guest", site);
-        let response: Value = client.raw_request("GET", &endpoint, None::<()>).await?;
+        let response: Value = client
+            .raw_request(Method::GET, &endpoint, None::<()>)
+            .await?;
 
         // Validate response is an array
         if let Some(guests) = response.as_array() {
@@ -188,7 +193,7 @@ impl GuestsValidator {
 
         // Authorize the guest first
         let _: Value = client
-            .raw_request("POST", &endpoint, Some(auth_payload))
+            .raw_request(Method::POST, &endpoint, Some(auth_payload))
             .await?;
 
         // Now unauthorize the guest
@@ -199,7 +204,7 @@ impl GuestsValidator {
 
         // Make raw API call
         let response = client
-            .raw_request("POST", &endpoint, Some(unauth_payload))
+            .raw_request(Method::POST, &endpoint, Some(unauth_payload))
             .await?;
 
         // Validate response is an empty array
@@ -244,7 +249,9 @@ impl GuestsValidator {
             });
 
             // Make raw API call and check if it succeeds
-            let result = client.raw_request("POST", &endpoint, Some(payload)).await;
+            let result = client
+                .raw_request(Method::POST, &endpoint, Some(payload))
+                .await;
 
             match result {
                 Ok(response) => {
@@ -350,7 +357,9 @@ impl GuestsValidator {
             });
 
             // Make raw API call and check if it succeeds
-            let result = client.raw_request("POST", &endpoint, Some(payload)).await;
+            let result = client
+                .raw_request(Method::POST, &endpoint, Some(payload))
+                .await;
 
             match result {
                 Ok(response) => {
@@ -411,7 +420,9 @@ impl GuestsValidator {
             });
 
             // Make raw API call and check if it succeeds
-            let result = client.raw_request("POST", &endpoint, Some(payload)).await;
+            let result = client
+                .raw_request(Method::POST, &endpoint, Some(payload))
+                .await;
 
             match result {
                 Ok(response) => {
@@ -481,7 +492,9 @@ impl GuestsValidator {
             });
 
             // Make raw API call and check if it succeeds
-            let result = client.raw_request("POST", &endpoint, Some(payload)).await;
+            let result = client
+                .raw_request(Method::POST, &endpoint, Some(payload))
+                .await;
 
             match result {
                 Ok(response) => {
@@ -559,7 +572,9 @@ impl GuestsValidator {
             "bytes": 100, // 100 MB
         });
 
-        let result = client.raw_request("POST", &endpoint, Some(payload)).await;
+        let result = client
+            .raw_request(Method::POST, &endpoint, Some(payload))
+            .await;
 
         match result {
             Ok(response) => {
@@ -618,7 +633,9 @@ impl GuestsValidator {
                 payload["down"] = serde_json::json!(d);
             }
 
-            let response: Value = client.raw_request("POST", endpoint, Some(payload)).await?;
+            let response: Value = client
+                .raw_request(Method::POST, endpoint, Some(payload))
+                .await?;
 
             if let Some(first) = response.as_array().and_then(|a| a.first()).cloned() {
                 Ok(first)

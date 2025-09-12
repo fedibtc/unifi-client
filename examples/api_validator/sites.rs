@@ -1,3 +1,4 @@
+use http::Method;
 use serde_json::Value;
 use unifi_client::{UniFiClient, UniFiResult};
 
@@ -15,7 +16,9 @@ impl SitesValidator {
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/stat/sysinfo", site);
 
-        let site_info: Value = client.raw_request("GET", &endpoint, None::<()>).await?;
+        let site_info: Value = client
+            .raw_request(Method::GET, &endpoint, None::<()>)
+            .await?;
 
         // Validate site info structure
         if let Some(info) = site_info.as_array().and_then(|v| v.first()) {
@@ -33,7 +36,9 @@ impl SitesValidator {
         let client = self.client.clone();
         let endpoint = format!("/api/stat/sites");
 
-        let sites: Value = client.raw_request("GET", &endpoint, None::<()>).await?;
+        let sites: Value = client
+            .raw_request(Method::GET, &endpoint, None::<()>)
+            .await?;
 
         if let Some(sites_array) = sites.as_array() {
             if !sites_array.is_empty() {

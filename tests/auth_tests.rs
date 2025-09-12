@@ -1,3 +1,4 @@
+use http::Method;
 use serde_json::json;
 use wiremock::matchers::{body_json, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -29,7 +30,9 @@ async fn test_successful_login() -> Result<(), UniFiError> {
         .await;
 
         let client = setup_test_client(&mock_server.uri()).await;
-        let result = client.raw_request("GET", "/api/self", None::<()>).await;
+        let result = client
+            .raw_request(Method::GET, "/api/self", None::<()>)
+            .await;
         assert!(result.is_ok());
     }
     Ok(())
