@@ -2,9 +2,8 @@ use std::env;
 use std::error::Error;
 use std::io::{self, Write};
 
-use chrono::{DateTime, Utc};
+use chrono::{TimeZone, Utc};
 use env_logger;
-use unifi_client::models::guests::GuestEntry;
 use unifi_client::UniFiClient;
 
 #[tokio::main]
@@ -68,25 +67,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     println!("No active guests found.");
                 } else {
                     println!("\nFound {} active guests:", active_guests.len());
-                    println!(
-                        "{:<26} {:<20} {:<12} {:<30}",
-                        "ID", "MAC", "Status", "Expires At (UTC)"
-                    );
+                    println!("{:<26} {:<20} {:<30}", "ID", "MAC", "Expires At (UTC)");
                     println!("{}", "-".repeat(80));
 
                     for guest in active_guests {
                         let expires_timestamp = guest.expires_at();
-                        let expires_dt =
-                            DateTime::<Utc>::from_timestamp(expires_timestamp as i64, 0)
-                                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
-                                .unwrap_or_else(|| "Invalid timestamp".to_string());
-                        println!(
-                            "{:<26} {:<20} {:<12} {:<30}",
-                            guest.id(),
-                            guest.mac(),
-                            "Active",
-                            expires_dt,
-                        );
+                        let expires_str = Utc
+                            .timestamp_opt(expires_timestamp, 0)
+                            .single()
+                            .map_or("Invalid timestamp".to_string(), |dt| {
+                                dt.format("%Y-%m-%d %H:%M:%S").to_string()
+                            });
+                        println!("{:<26} {:<20} {:<30}", guest.id(), guest.mac(), expires_str,);
                     }
                 }
             }
@@ -103,20 +95,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     println!("No expired guests found.");
                 } else {
                     println!("\nFound {} expired guests:", expired_guests.len());
-                    println!("{:<26} {:<20} {:<25}", "ID", "MAC", "Unauthorized By");
+                    println!("{:<26} {:<20} {:<30}", "ID", "MAC", "Expired At (UTC)");
                     println!("{}", "-".repeat(80));
 
                     for guest in expired_guests {
-                        // Get all needed fields before the match
-                        let id = guest.id();
-                        let mac = guest.mac();
-                        let unauthorized_by = match &guest {
-                            GuestEntry::Inactive {
-                                unauthorized_by, ..
-                            } => unauthorized_by.clone().unwrap_or_else(|| "".to_string()),
-                            _ => "".to_string(),
-                        };
-                        println!("{:<26} {:<20} {:<25}", id, mac, unauthorized_by,);
+                        let expires_timestamp = guest.expires_at();
+                        let expires_str = Utc
+                            .timestamp_opt(expires_timestamp, 0)
+                            .single()
+                            .map_or("Invalid timestamp".to_string(), |dt| {
+                                dt.format("%Y-%m-%d %H:%M:%S").to_string()
+                            });
+                        println!("{:<26} {:<20} {:<25}", guest.id(), guest.mac(), expires_str,);
                     }
                 }
             }
