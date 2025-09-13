@@ -17,7 +17,7 @@ impl SitesValidator {
         let endpoint = format!("/api/s/{}/stat/sysinfo", site);
 
         let site_info: Value = client
-            .raw_request(Method::GET, &endpoint, None::<()>)
+            .request_json(Method::GET, &endpoint, None::<()>)
             .await?;
 
         // Validate site info structure
@@ -37,7 +37,7 @@ impl SitesValidator {
         let endpoint = format!("/api/stat/sites");
 
         let sites: Value = client
-            .raw_request(Method::GET, &endpoint, None::<()>)
+            .request_json(Method::GET, &endpoint, None::<()>)
             .await?;
 
         if let Some(sites_array) = sites.as_array() {

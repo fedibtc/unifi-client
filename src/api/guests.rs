@@ -1,5 +1,3 @@
-use reqwest::Method;
-
 use crate::models::EmptyResponse;
 use crate::{models, UniFiClient, UniFiError, UniFiResult};
 
@@ -230,10 +228,8 @@ impl AuthorizeGuestBuilder {
             ap_mac: self.access_point_mac_address,
         };
 
-        let response: Vec<models::guests::GuestEntry> = self
-            .unifi_client
-            .request(Method::POST, &endpoint, Some(request))
-            .await?;
+        let response: Vec<models::guests::GuestEntry> =
+            self.unifi_client.post(&endpoint, Some(request)).await?;
 
         response
             .into_iter()
@@ -271,7 +267,7 @@ impl ListGuestsBuilder {
             .within_hours
             .map(|hours| serde_json::json!({ "within": hours }));
 
-        self.client.request(Method::GET, &endpoint, params).await
+        self.client.get(&endpoint, params).await
     }
 }
 
@@ -292,7 +288,7 @@ impl UnauthorizeGuestBuilder {
         let request = models::guests::UnauthorizeGuestRequest::new(self.mac);
 
         self.client
-            .request(Method::POST, &endpoint, Some(request))
+            .post(&endpoint, Some(request))
             .await
             .map(|_: EmptyResponse| ())
     }
