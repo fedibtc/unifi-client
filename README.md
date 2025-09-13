@@ -91,7 +91,7 @@ async fn main() -> Result<(), UniFiError> {
         .build()
         .await?;
     unifi_client::initialize(client);
-    
+
     let unifi_client = unifi_client::instance();
 
     // Authorize a guest:
@@ -169,8 +169,25 @@ UniFiClient supports two patterns for client creation and access:
 
 **Best Practices:**
 - **Single Controller:** Call `initialize()` early (typically in `main`) and use `instance()` anywhere else.
+  - Note: If `initialize()` isn’t called, `instance()` refers to an inert default client; any requests will return a configuration error.
 - **Multiple or Custom Instances:** Use the builder to create each client independently.
-- If `initialize()` isn’t called, any singleton usage should gracefully return a configuration error.
+
+### Feature Flags
+
+- `default-client` (enabled by default):
+  - Provides the global singleton (`initialize()` / `instance()`), implemented with a
+    thread-safe `Arc` and `ArcSwap`.
+  - Starts with an inert default client (invalid URL, no credentials, cookie store enabled).
+  - Recommended for apps that interact with a single controller and prefer global access.
+
+Disable the global client if you want explicit dependency injection only:
+
+```toml
+[dependencies]
+unifi-client = { version = "*", default-features = false }
+```
+
+When disabled, call `UniFiClient::builder()` and pass the client handle through your application.
 
 ### Creating Multiple Clients
 

@@ -37,8 +37,18 @@
 //!     #    .password_from_env("UNIFI_PASSWORD")
 //!     #    .build()
 //!     #    .await?;
-//!     # unifi_client::initialize(client);
-//! let unifi_client = unifi_client::instance();
+//!     # let unifi_client = {
+//!     #     #[cfg(feature = "default-client")]
+//!     #     {
+//!     #         unifi_client::initialize(client);
+//!     #         unifi_client::instance()
+//!     #     }
+//!     #     #[cfg(not(feature = "default-client"))]
+//!     #     {
+//!     #         client
+//!     #     }
+//!     # };
+//! let unifi_client = unifi_client;
 //! // Authorize a guest with optional parameters.
 //! let new_guest = unifi_client
 //!     .guests()
@@ -63,5 +73,7 @@ mod error;
 pub mod models;
 
 pub use self::api::guests;
-pub use self::client::{initialize, instance, UniFiClient, UniFiClientBuilder};
+#[cfg(feature = "default-client")]
+pub use self::client::{initialize, instance};
+pub use self::client::{UniFiClient, UniFiClientBuilder};
 pub use self::error::{UniFiError, UniFiResult};

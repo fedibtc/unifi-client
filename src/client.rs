@@ -2,8 +2,10 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
+#[cfg(feature = "default-client")]
 use arc_swap::ArcSwap;
 use http::Method;
+#[cfg(feature = "default-client")]
 use once_cell::sync::Lazy;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use reqwest::redirect::Policy;
@@ -19,10 +21,12 @@ use crate::api::guests;
 use crate::models::ApiResponse;
 use crate::{models, UniFiError, UniFiResult};
 
-static UNIFI_CLIENT: Lazy<ArcSwap<UniFiClient>> = Lazy::new(|| {
-    // Create a default client using the builder's default values.
-    ArcSwap::new(Arc::new(UniFiClient::default()))
-});
+// Global default instance
+// Initializes to an inert default client; applications should call `initialize()`
+// early to replace it with a configured client.
+#[cfg(feature = "default-client")]
+static UNIFI_CLIENT: Lazy<ArcSwap<UniFiClient>> =
+    Lazy::new(|| ArcSwap::from_pointee(UniFiClient::default()));
 
 /// Initializes the global UniFi client instance.
 ///
@@ -35,8 +39,14 @@ static UNIFI_CLIENT: Lazy<ArcSwap<UniFiClient>> = Lazy::new(|| {
 ///
 /// * `client` - A fully constructed `UniFiClient`.
 ///
+/// # Returns
+///
+/// - `Arc<UniFiClient>`: The previously configured global client instance.
+///   On the first call this will be the inert default instance.
+///
 /// # Examples
 ///
+/// Basic initialization:
 /// ```no_run
 /// # use unifi_client::UniFiClient;
 /// # #[tokio::main]
@@ -47,12 +57,40 @@ static UNIFI_CLIENT: Lazy<ArcSwap<UniFiClient>> = Lazy::new(|| {
 ///     .password("secret")
 ///     .build()
 ///     .await?;
-/// unifi_client::initialize(client);
+/// let _prev = unifi_client::initialize(client);
 /// # Ok(())
 /// # }
 /// ```
-pub fn initialize(client: UniFiClient) {
-    UNIFI_CLIENT.store(Arc::new(client));
+///
+/// Swapping instances (e.g., tests or hot-reload scenarios):
+/// ```no_run
+/// # use unifi_client::UniFiClient;
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let client_a = UniFiClient::builder()
+///     .controller_url("https://a.example:8443")
+///     .username("user_a")
+///     .password("pass_a")
+///     .build()
+///     .await?;
+/// let _ = unifi_client::initialize(client_a);
+///
+/// let client_b = UniFiClient::builder()
+///     .controller_url("https://b.example:8443")
+///     .username("user_b")
+///     .password("pass_b")
+///     .build()
+///     .await?;
+/// let previous = unifi_client::initialize(client_b);
+/// // `previous` is the prior global client (client_a).
+/// # Ok(())
+/// # }
+/// ```
+#[cfg(feature = "default-client")]
+#[cfg_attr(docsrs, doc(cfg(feature = "default-client")))]
+pub fn initialize(client: UniFiClient) -> Arc<UniFiClient> {
+    // Swap in the provided client and return the previous instance.
+    UNIFI_CLIENT.swap(Arc::new(client))
 }
 
 /// Returns a reference to the global UniFi client instance.
@@ -73,6 +111,8 @@ pub fn initialize(client: UniFiClient) {
 /// # Ok(())
 /// # }
 /// ```
+#[cfg(feature = "default-client")]
+#[cfg_attr(docsrs, doc(cfg(feature = "default-client")))]
 pub fn instance() -> Arc<UniFiClient> {
     UNIFI_CLIENT.load_full()
 }
@@ -643,24 +683,20 @@ impl UniFiClient {
     /// # Examples
     ///
     /// ```no_run
-    /// # use reqwest::{Method, Response};
+    /// # use reqwest::Method;
     /// # use unifi_client::{UniFiClient, UniFiError};
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), UniFiError> {
-    /// // You MUST initialize the client *before* using instance().
-    /// //  For real use, you'd get the password from a secure location,
-    /// //  not hardcode it.
-    /// let client = UniFiClient::builder()
+    /// // For production use, get the password from a secure location.
+    /// let unifi_client = UniFiClient::builder()
     ///     .controller_url("https://your-controller-url:8443")
     ///     .username("your_username")
     ///     .password("your_password")
     ///     .build()
     ///     .await?;
-    /// unifi_client::initialize(client);
     ///
     /// // Get system status with a raw request.
-    /// // The result is a `reqwest::Response` struct.
-    /// let status: reqwest::Response = unifi_client::instance()
+    /// let status = unifi_client
     ///     .raw_request(Method::GET, "/api/s/default/stat/sysinfo", None::<()>)
     ///     .await?;
     ///
@@ -709,10 +745,17 @@ impl UniFiClient {
     ///
     /// ```no_run
     /// # use reqwest::Method;
-    /// # use unifi_client::UniFiError;
+    /// # use unifi_client::{UniFiClient, UniFiError};
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), UniFiError> {
-    /// let json = unifi_client::instance()
+    /// // For production use, get the password from a secure location.
+    /// let unifi_client = UniFiClient::builder()
+    ///     .controller_url("https://your-controller-url:8443")
+    ///     .username("your_username")
+    ///     .password("your_password")
+    ///     .build()
+    ///     .await?;
+    /// let json = unifi_client
     ///     .request_json::<()>(Method::GET, "/api/s/default/stat/health", None)
     ///     .await?;
     /// # Ok(())
