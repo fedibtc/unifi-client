@@ -297,13 +297,15 @@ impl UniFiClientBuilder {
 
         let timeout = self.timeout.unwrap_or(Duration::from_secs(30));
 
-        let password = self
-            .password
-            .ok_or_else(|| UniFiError::ConfigurationError("Password is required".into()))?;
-
         let username = self
             .username
+            .filter(|u| !u.trim().is_empty())
             .ok_or_else(|| UniFiError::ConfigurationError("Username is required".into()))?;
+
+        let password = self
+            .password
+            .filter(|p| !p.expose_secret().trim().is_empty())
+            .ok_or_else(|| UniFiError::ConfigurationError("Password is required".into()))?;
 
         let controller_url = self
             .controller_url
@@ -485,14 +487,20 @@ impl UniFiClient {
 /// # UniFi Authentication Methods
 impl UniFiClient {
     async fn login(&self) -> UniFiResult<()> {
-        let password = match &self.password {
-            Some(pwd) => pwd.expose_secret().to_string(),
-            None => {
-                return Err(UniFiError::AuthenticationError(
-                    "No password provided for authentication".into(),
-                ))
-            }
-        };
+        // Validate username and password fields once per session initiation.
+        if self.username.trim().is_empty() {
+            return Err(UniFiError::ConfigurationError(
+                "Username is required".into(),
+            ));
+        }
+        let password = self
+            .password
+            .as_ref()
+            .and_then(|p| {
+                let s = p.expose_secret();
+                (!s.trim().is_empty()).then(|| s.to_owned())
+            })
+            .ok_or_else(|| UniFiError::ConfigurationError("Password is required".into()))?;
 
         // Choose login path based on pre-detected controller kind
         let login_path = match self.controller_kind {
@@ -564,17 +572,7 @@ impl UniFiClient {
 
     /// Ensure the client is authenticated.
     async fn ensure_authenticated(&self) -> UniFiResult<()> {
-        // Check if essential fields are configured *before* trying to use them.
-        if self.username.is_empty() {
-            return Err(UniFiError::ConfigurationError(
-                "Username is required".into(),
-            ));
-        }
-        if self.controller_url.as_str().is_empty() {
-            return Err(UniFiError::ConfigurationError(
-                "Controller URL is required".into(),
-            ));
-        }
+        // If the client is not authenticated, login.
         if self.auth_state.read().await.is_none() {
             return self.login().await;
         }
