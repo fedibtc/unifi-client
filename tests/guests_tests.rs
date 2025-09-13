@@ -286,3 +286,55 @@ async fn test_guest_api_error() {
         assert!(result.is_err());
     }
 }
+
+#[tokio::test]
+async fn test_list_guests_with_negative_qos_usage_quota() {
+    // Ensure deserialization succeeds when qos_usage_quota is negative
+    for &flavor in &[TestControllerKind::Network, TestControllerKind::Os] {
+        let mock_server = MockServer::start().await;
+        setup_probe_and_login(&mock_server, flavor).await;
+
+        let endpoint = api_path(flavor, "/api/s/default/stat/guest");
+        let mock = Mock::given(method("GET")).and(path(endpoint.as_str()));
+        let mock = add_auth_headers(mock, flavor);
+        mock.respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "meta": { "rc": "ok" },
+            "data": [
+                {
+                    "_id": "guest-active-1",
+                    "authorized_by": "api",
+                    "start": 1622548800,
+                    "end": 1622550600,
+                    "expired": false,
+                    "site_id": "default",
+                    "mac": "11:22:33:44:55:66",
+                    // Active-specific traffic counters
+                    "bytes": 123,
+                    "rx_bytes": 45,
+                    "tx_bytes": 78,
+                    // Negative quota from some UniFi Network controllers
+                    "qos_overwrite": true,
+                    "qos_usage_quota": -1000
+                }
+            ]
+        })))
+        .mount(&mock_server)
+        .await;
+
+        let client = setup_test_client(&mock_server.uri()).await;
+        let guests = client.guests().list().send().await.expect("request ok");
+        assert_eq!(guests.len(), 1);
+
+        match &guests[0] {
+            GuestEntry::Active {
+                qos_usage_quota,
+                expired,
+                ..
+            } => {
+                assert!(!expired, "entry should be active");
+                assert_eq!(*qos_usage_quota, Some(-1000));
+            }
+            other => panic!("expected Active variant, got: {:?}", other),
+        }
+    }
+}
