@@ -235,6 +235,8 @@ use reqwest::Client as ReqwestClient;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let custom_http_client = ReqwestClient::builder()
         .timeout(std::time::Duration::from_secs(60))
+        .redirect(Policy::none())
+        .cookie_store(true)
         .build()?;
 
     let client = UniFiClient::builder()
