@@ -28,6 +28,16 @@ use crate::{models, UniFiError, UniFiResult};
 static UNIFI_CLIENT: Lazy<ArcSwap<UniFiClient>> =
     Lazy::new(|| ArcSwap::from_pointee(UniFiClient::default()));
 
+// Helper to create a reqwest client builder to ensure consistent configuration.
+fn reqwest_builder(timeout: Duration, verify_ssl: bool) -> reqwest::ClientBuilder {
+    ReqwestClient::builder()
+        .timeout(timeout)
+        .danger_accept_invalid_certs(!verify_ssl)
+        .redirect(Policy::none())
+        .cookie_store(true)
+        .user_agent(concat!("unifi-client/", env!("CARGO_PKG_VERSION")))
+}
+
 /// Initializes the global UniFi client instance.
 ///
 /// # Warning
@@ -41,8 +51,8 @@ static UNIFI_CLIENT: Lazy<ArcSwap<UniFiClient>> =
 ///
 /// # Returns
 ///
-/// - `Arc<UniFiClient>`: The previously configured global client instance.
-///   On the first call this will be the inert default instance.
+/// - `Arc<UniFiClient>`: The previously configured global client instance. On the first call this
+///   will be the inert default instance.
 ///
 /// # Examples
 ///
@@ -129,7 +139,6 @@ pub struct UniFiClientBuilder {
     site: Option<String>,
     verify_ssl: bool,
     timeout: Option<Duration>,
-    user_agent: Option<String>,
     http_client: Option<ReqwestClient>,
 }
 
@@ -239,20 +248,6 @@ impl UniFiClientBuilder {
         self
     }
 
-    /// Sets a custom user agent string.
-    ///
-    /// # Arguments
-    ///
-    /// * `user_agent` - The HTTP `User-Agent` header value to send.
-    ///
-    /// # Returns
-    ///
-    /// - `Self`: The builder for method chaining.
-    pub fn user_agent(mut self, user_agent: impl Into<String>) -> Self {
-        self.user_agent = Some(user_agent.into());
-        self
-    }
-
     /// Sets a custom reqwest client (e.g., for testing or custom middleware).
     ///
     /// # Arguments
@@ -319,20 +314,10 @@ impl UniFiClientBuilder {
                 })
             })?;
 
-        let user_agent = self
-            .user_agent
-            .as_deref()
-            .unwrap_or(concat!("unifi-client/", env!("CARGO_PKG_VERSION")));
-
         let http_client = if let Some(custom_client) = self.http_client {
             custom_client
         } else {
-            ReqwestClient::builder()
-                .timeout(timeout)
-                .danger_accept_invalid_certs(!self.verify_ssl)
-                .redirect(Policy::none())
-                .cookie_store(true)
-                .user_agent(user_agent)
+            reqwest_builder(timeout, self.verify_ssl)
                 .build()
                 .map_err(|e| {
                     UniFiError::ConfigurationError(format!("Failed to create HTTP client: {e}"))
@@ -371,9 +356,6 @@ impl UniFiClientBuilder {
             username,
             password: Some(password),
             site,
-            verify_ssl: self.verify_ssl,
-            timeout,
-            user_agent: self.user_agent,
             http_client,
             auth_state: Arc::new(RwLock::new(None)),
         };
@@ -408,9 +390,6 @@ pub struct UniFiClient {
     username: String,
     password: Option<SecretString>,
     site: String,
-    verify_ssl: bool,
-    timeout: Duration,
-    user_agent: Option<String>,
     http_client: ReqwestClient,
     auth_state: Arc<RwLock<Option<AuthState>>>,
 }
@@ -429,9 +408,6 @@ impl fmt::Debug for UniFiClient {
             .field("username", &self.username)
             .field("password", &self.password)
             .field("site", &self.site)
-            .field("verify_ssl", &self.verify_ssl)
-            .field("timeout", &self.timeout)
-            .field("user_agent", &self.user_agent)
             .field("auth_state", &auth_state_info)
             .finish()
     }
@@ -439,34 +415,33 @@ impl fmt::Debug for UniFiClient {
 
 /// Defaults for UniFiClient:
 /// - `controller_kind`: `Network`
-/// - `controller_url`: `https://localhost:8443`
-/// - `api_base_url`: `https://localhost:8443`
-/// - `username`: `admin`
-/// - `password`: `admin`
+/// - `controller_url`: `https://example.invalid:8443`
+/// - `api_base_url`: `https://example.invalid:8443`
+/// - `username`: empty
+/// - `password`: `None`
 /// - `site`: `default`
-/// - `verify_ssl`: `false`
-/// - `timeout`: `30 seconds`
-/// - `http_client`: bare `reqwest::Client::new()` (no cookie store configured)
+/// - `http_client`: reqwest client with `cookie_store(true)` and no redirects
 ///
-/// Note: This Default is intended for local testing and debugging. For real use,
-/// construct a client via `UniFiClient::builder()`, which configures the HTTP
-/// client, detects controller kind, sets `api_base_url`, and performs the initial
-/// login.
+/// Note: This Default is inert and intended to be replaced via
+/// `UniFiClient::builder().build().await` and `initialize()`. Using the default
+/// instance without initialization will produce configuration/authentication errors
+/// when attempting to make requests.
 impl Default for UniFiClient {
     fn default() -> Self {
+        let timeout = Duration::from_secs(30);
+        let http_client = reqwest_builder(timeout, true)
+            .build()
+            .expect("Failed to create default HTTP client");
+
         UniFiClient {
             controller_kind: ControllerKind::Network,
-            controller_url: Url::parse("https://localhost:8443")
-                .expect("Failed to parse default URL"),
-            api_base_url: Url::parse("https://localhost:8443")
-                .expect("Failed to parse default URL"),
-            username: "admin".to_string(),
-            password: Some(SecretString::from("admin")),
+            controller_url: Url::parse("https://example.invalid:8443")
+                .expect("Invalid default URL"),
+            api_base_url: Url::parse("https://example.invalid:8443").expect("Invalid default URL"),
+            username: String::new(),
+            password: None,
             site: "default".to_string(),
-            verify_ssl: false,
-            timeout: Duration::from_secs(30),
-            user_agent: Some(concat!("unifi-client/", env!("CARGO_PKG_VERSION")).to_string()),
-            http_client: reqwest::Client::new(),
+            http_client,
             auth_state: Arc::new(RwLock::new(None)),
         }
     }
@@ -931,9 +906,6 @@ mod tests {
             username: "user".into(),
             password: Some(SecretString::from("pass")),
             site: "default".into(),
-            verify_ssl: true,
-            timeout: Duration::from_secs(30),
-            user_agent: Some("unifi-client/test".into()),
             http_client: reqwest::Client::new(),
             auth_state: Arc::new(RwLock::new(None)),
         }
