@@ -32,7 +32,7 @@ impl GuestsValidator {
 
         // Make raw API call
         let response: Value = client
-            .raw_request(Method::POST, &endpoint, Some(payload))
+            .request_json(Method::POST, &endpoint, Some(payload))
             .await?;
 
         // Validate response structure and values
@@ -113,13 +113,13 @@ impl GuestsValidator {
 
         // Authorize the guest first
         let _: Value = client
-            .raw_request(Method::POST, &endpoint, Some(auth_payload))
+            .request_json(Method::POST, &endpoint, Some(auth_payload))
             .await?;
 
         // Get the list of guests
         let endpoint = format!("/api/s/{}/stat/guest", site);
         let response: Value = client
-            .raw_request(Method::GET, &endpoint, None::<()>)
+            .request_json(Method::GET, &endpoint, None::<()>)
             .await?;
 
         // Validate response is an array
@@ -193,7 +193,7 @@ impl GuestsValidator {
 
         // Authorize the guest first
         let _: Value = client
-            .raw_request(Method::POST, &endpoint, Some(auth_payload))
+            .request_json(Method::POST, &endpoint, Some(auth_payload))
             .await?;
 
         // Now unauthorize the guest
@@ -204,7 +204,7 @@ impl GuestsValidator {
 
         // Make raw API call
         let response = client
-            .raw_request(Method::POST, &endpoint, Some(unauth_payload))
+            .request_json(Method::POST, &endpoint, Some(unauth_payload))
             .await?;
 
         // Validate response is an empty array
@@ -250,7 +250,7 @@ impl GuestsValidator {
 
             // Make raw API call and check if it succeeds
             let result = client
-                .raw_request(Method::POST, &endpoint, Some(payload))
+                .request_json(Method::POST, &endpoint, Some(payload))
                 .await;
 
             match result {
@@ -358,7 +358,7 @@ impl GuestsValidator {
 
             // Make raw API call and check if it succeeds
             let result = client
-                .raw_request(Method::POST, &endpoint, Some(payload))
+                .request_json(Method::POST, &endpoint, Some(payload))
                 .await;
 
             match result {
@@ -421,7 +421,7 @@ impl GuestsValidator {
 
             // Make raw API call and check if it succeeds
             let result = client
-                .raw_request(Method::POST, &endpoint, Some(payload))
+                .request_json(Method::POST, &endpoint, Some(payload))
                 .await;
 
             match result {
@@ -493,7 +493,7 @@ impl GuestsValidator {
 
             // Make raw API call and check if it succeeds
             let result = client
-                .raw_request(Method::POST, &endpoint, Some(payload))
+                .request_json(Method::POST, &endpoint, Some(payload))
                 .await;
 
             match result {
@@ -573,7 +573,7 @@ impl GuestsValidator {
         });
 
         let result = client
-            .raw_request(Method::POST, &endpoint, Some(payload))
+            .request_json(Method::POST, &endpoint, Some(payload))
             .await;
 
         match result {
@@ -634,7 +634,7 @@ impl GuestsValidator {
             }
 
             let response: Value = client
-                .raw_request(Method::POST, endpoint, Some(payload))
+                .request_json(Method::POST, endpoint, Some(payload))
                 .await?;
 
             if let Some(first) = response.as_array().and_then(|a| a.first()).cloned() {

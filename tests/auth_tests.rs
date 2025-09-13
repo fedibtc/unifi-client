@@ -31,7 +31,7 @@ async fn test_successful_login() -> Result<(), UniFiError> {
 
         let client = setup_test_client(&mock_server.uri()).await;
         let result = client
-            .raw_request(Method::GET, "/api/self", None::<()>)
+            .request_json(Method::GET, "/api/self", None::<()>)
             .await;
         assert!(result.is_ok());
     }

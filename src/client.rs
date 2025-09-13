@@ -24,18 +24,55 @@ static UNIFI_CLIENT: Lazy<ArcSwap<UniFiClient>> = Lazy::new(|| {
     ArcSwap::new(Arc::new(UniFiClient::default()))
 });
 
-/// Initializes the static UniFiClient instance.  This should be called once
-/// at the beginning of your application.
+/// Initializes the global UniFi client instance.
+///
+/// # Warning
+///
+/// Call this exactly once at application startup. Calling it again will
+/// replace the existing instance used by `instance()`.
+///
+/// # Arguments
+///
+/// * `client` - A fully constructed `UniFiClient`.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use unifi_client::UniFiClient;
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let client = UniFiClient::builder()
+///     .controller_url("https://controller.example:8443")
+///     .username("admin")
+///     .password("secret")
+///     .build()
+///     .await?;
+/// unifi_client::initialize(client);
+/// # Ok(())
+/// # }
+/// ```
 pub fn initialize(client: UniFiClient) {
     UNIFI_CLIENT.store(Arc::new(client));
 }
 
-/// Returns a reference to the static UniFiClient instance.
+/// Returns a reference to the global UniFi client instance.
 ///
-/// This function provides a thread-safe way to access the UniFi client
-/// instance. It returns a reference to the current UniFi client, which can be
-/// used to make API requests. If it hasn't been previously initialized it
-/// returns a default instance with no authentication set.
+/// # Returns
+///
+/// - `Arc<UniFiClient>`: A thread-safe handle to the current client. If `initialize()` hasn't been
+///   called, a default (unauthenticated) client is returned.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use unifi_client::UniFiError;
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), UniFiError> {
+/// let client = unifi_client::instance();
+/// // Use `client` to perform requests...
+/// # Ok(())
+/// # }
+/// ```
 pub fn instance() -> Arc<UniFiClient> {
     UNIFI_CLIENT.load_full()
 }
@@ -58,24 +95,60 @@ pub struct UniFiClientBuilder {
 
 impl UniFiClientBuilder {
     /// Sets the controller URL.
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - The base URL of the UniFi controller (e.g., `https://controller.example:8443`).
+    ///
+    /// # Returns
+    ///
+    /// - `Self`: The builder for method chaining.
     pub fn controller_url(mut self, url: impl Into<String>) -> Self {
         self.controller_url = Some(url.into());
         self
     }
 
     /// Sets the username for authentication.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The account username.
+    ///
+    /// # Returns
+    ///
+    /// - `Self`: The builder for method chaining.
     pub fn username(mut self, username: impl Into<String>) -> Self {
         self.username = Some(username.into());
         self
     }
 
     /// Sets the password for authentication.
+    ///
+    /// # Arguments
+    ///
+    /// * `password` - The account password.
+    ///
+    /// # Returns
+    ///
+    /// - `Self`: The builder for method chaining.
     pub fn password(mut self, password: impl Into<String>) -> Self {
         self.password = Some(SecretString::from(password.into()));
         self
     }
 
     /// Sets the password from an environment variable.
+    ///
+    /// # Arguments
+    ///
+    /// * `var_name` - The name of the environment variable containing the password.
+    ///
+    /// # Returns
+    ///
+    /// - `Self`: The builder for method chaining.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the environment variable cannot be read.
     pub fn password_from_env(mut self, var_name: &str) -> Self {
         let password = std::env::var(var_name)
             .map_err(|e| format!("Failed to read environment variable '{}': {}", var_name, e))
@@ -85,35 +158,105 @@ impl UniFiClientBuilder {
     }
 
     /// Sets the site to use.
+    ///
+    /// # Arguments
+    ///
+    /// * `site` - The UniFi site identifier (e.g., `default`).
+    ///
+    /// # Returns
+    ///
+    /// - `Self`: The builder for method chaining.
     pub fn site(mut self, site: impl Into<String>) -> Self {
         self.site = Some(site.into());
         self
     }
 
     /// Sets whether to verify SSL certificates.
+    ///
+    /// # Arguments
+    ///
+    /// * `verify` - When `true`, SSL certificates are validated.
+    ///
+    /// # Returns
+    ///
+    /// - `Self`: The builder for method chaining.
     pub fn verify_ssl(mut self, verify: bool) -> Self {
         self.verify_ssl = verify;
         self
     }
 
     /// Sets the HTTP request timeout.
+    ///
+    /// # Arguments
+    ///
+    /// * `timeout` - The overall request timeout duration.
+    ///
+    /// # Returns
+    ///
+    /// - `Self`: The builder for method chaining.
     pub fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = Some(timeout);
         self
     }
 
     /// Sets a custom user agent string.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_agent` - The HTTP `User-Agent` header value to send.
+    ///
+    /// # Returns
+    ///
+    /// - `Self`: The builder for method chaining.
     pub fn user_agent(mut self, user_agent: impl Into<String>) -> Self {
         self.user_agent = Some(user_agent.into());
         self
     }
 
     /// Sets a custom reqwest client (e.g., for testing or custom middleware).
+    ///
+    /// # Arguments
+    ///
+    /// * `http_client` - A preconfigured `reqwest::Client`.
+    ///
+    /// # Returns
+    ///
+    /// - `Self`: The builder for method chaining.
     pub fn http_client(mut self, http_client: ReqwestClient) -> Self {
         self.http_client = Some(http_client);
         self
     }
 
+    /// Builds and authenticates a `UniFiClient`.
+    ///
+    /// This constructs the HTTP client, detects the controller kind
+    /// (UniFi OS vs. Network), configures `api_base_url`, and performs an
+    /// initial login.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Required fields are missing (username, password, controller URL).
+    /// - The controller URL is invalid.
+    /// - The HTTP client cannot be created.
+    /// - Authentication fails.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use unifi_client::{UniFiClient, UniFiError};
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), UniFiError> {
+    /// let client = UniFiClient::builder()
+    ///     .controller_url("https://controller.example:8443")
+    ///     .username("admin")
+    ///     .password("secret")
+    ///     .verify_ssl(true)
+    ///     .build()
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn build(self) -> UniFiResult<UniFiClient> {
         let site = self.site.unwrap_or_else(|| "default".to_string());
 
@@ -291,6 +434,13 @@ impl Default for UniFiClient {
 
 /// # Constructors
 impl UniFiClient {
+    /// Creates a new `UniFiClientBuilder`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let builder = unifi_client::UniFiClient::builder();
+    /// ```
     pub fn builder() -> UniFiClientBuilder {
         UniFiClientBuilder::default()
     }
@@ -298,12 +448,20 @@ impl UniFiClient {
 
 /// # UniFiAPI Handlers
 impl UniFiClient {
-    /// Gets the current site ID.
+    /// Gets the current site identifier.
+    ///
+    /// # Returns
+    ///
+    /// - `&str`: The configured UniFi site (e.g., `default`).
     pub fn site(&self) -> &str {
         &self.site
     }
 
-    /// Creates a new [`guests::GuestHandler`] for accessing information from UniFi's Guest API.
+    /// Creates a new `guests::GuestHandler` for the Guests API.
+    ///
+    /// # Returns
+    ///
+    /// - `guests::GuestHandler`: A typed handler scoped to this client.
     pub fn guests(&self) -> guests::GuestHandler {
         guests::GuestHandler::new(self.clone())
     }
@@ -452,10 +610,13 @@ impl UniFiClient {
 /// absolute, and post processing such as mapping any potential UniFi errors
 /// into `Err()` variants, and deserializing the response body.
 ///
-/// This isn't always ideal when working with UniFi's API and as such there are
-/// additional methods available prefixed with `_` (e.g.  `_get`, `_post`,
-/// etc.) that perform no pre or post processing and directly return the
-/// `http::Response` struct.
+/// This isn't always ideal when working with UniFi's API and as such there is
+/// an additional method available, `raw_request()`, that  performs no pre or
+/// post processing and directly returns the `http::Response` struct.
+///
+/// Additionally, `request_json()` is available for endpoints that return the
+/// standard `{ meta: { rc: ... }, data: ... }` response. It inspects `meta.rc`
+/// and returns the `data` field as a `serde_json::Value`.
 impl UniFiClient {
     /// Makes a raw request to the UniFi API.
     ///
@@ -466,7 +627,7 @@ impl UniFiClient {
     ///
     /// # Arguments
     ///
-    /// * `method` - The HTTP method to use (e.g., "GET", "POST").
+    /// * `method` - The HTTP method to use (e.g., `Method::GET`, `Method::POST`).
     /// * `endpoint` - The API endpoint path (e.g., "/api/s/default/stat/sysinfo").
     /// * `body` - Optional request body (must implement `Serialize`).
     ///
@@ -482,8 +643,7 @@ impl UniFiClient {
     /// # Examples
     ///
     /// ```no_run
-    /// # use reqwest::Method;
-    /// # use serde_json::Value;
+    /// # use reqwest::{Method, Response};
     /// # use unifi_client::{UniFiClient, UniFiError};
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), UniFiError> {
@@ -499,8 +659,8 @@ impl UniFiClient {
     /// unifi_client::initialize(client);
     ///
     /// // Get system status with a raw request.
-    /// // The result is a serde_json::Value.
-    /// let status: Value = unifi_client::instance()
+    /// // The result is a `reqwest::Response` struct.
+    /// let status: reqwest::Response = unifi_client::instance()
     ///     .raw_request(Method::GET, "/api/s/default/stat/sysinfo", None::<()>)
     ///     .await?;
     ///
@@ -510,45 +670,64 @@ impl UniFiClient {
     /// ```
     pub async fn raw_request<T>(
         &self,
-        method: Method,
+        method: http::Method,
         endpoint: &str,
         body: Option<T>,
-    ) -> UniFiResult<Value>
+    ) -> UniFiResult<reqwest::Response>
     where
         T: Serialize,
-    {
-        let response = self.send_http(method, endpoint, body).await?;
-
-        let api_response: ApiResponse<Value> = response.json().await?;
-
-        if api_response.meta.rc != "ok" {
-            return Err(UniFiError::ApiError(
-                api_response
-                    .meta
-                    .msg
-                    .unwrap_or_else(|| "Unknown API error".into()),
-            ));
-        }
-
-        Ok(api_response.data.unwrap_or(Value::Null))
-    }
-
-    /// Make a request to the UniFi API.
-    pub(crate) async fn request<T, R>(
-        &self,
-        method: Method,
-        endpoint: &str,
-        body: Option<T>,
-    ) -> UniFiResult<R>
-    where
-        T: Serialize,
-        R: DeserializeOwned,
     {
         let response = self.send_http(method, endpoint, body).await?;
 
         if response.status() == StatusCode::UNAUTHORIZED {
             return Err(UniFiError::NotAuthenticated);
         }
+
+        Ok(response)
+    }
+
+    /// Makes a raw request and returns the parsed JSON body.
+    ///
+    /// For endpoints that follow UniFi's standard response shape:
+    /// `{ meta: { rc: "ok" }, data: ... }`. This method checks `meta.rc`
+    /// and returns the `data` field as a `serde_json::Value`.
+    ///
+    /// # Arguments
+    ///
+    /// - `method`: The HTTP method to use.
+    /// - `endpoint`: The API endpoint path (e.g., `/api/s/default/stat/sysinfo`).
+    /// - `body`: Optional request body.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The request fails or authentication is invalid.
+    /// - The response body cannot be parsed.
+    /// - `meta.rc` is not `"ok"`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use reqwest::Method;
+    /// # use unifi_client::UniFiError;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), UniFiError> {
+    /// let json = unifi_client::instance()
+    ///     .request_json::<()>(Method::GET, "/api/s/default/stat/health", None)
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn request_json<T>(
+        &self,
+        method: http::Method,
+        endpoint: &str,
+        body: Option<T>,
+    ) -> UniFiResult<serde_json::Value>
+    where
+        T: Serialize,
+    {
+        let response = self.raw_request(method, endpoint, body).await?;
 
         if !response.status().is_success() {
             return Err(UniFiError::ApiError(format!(
@@ -557,7 +736,7 @@ impl UniFiClient {
             )));
         }
 
-        let api_response: ApiResponse<R> = response.json().await?;
+        let api_response: ApiResponse<serde_json::Value> = response.json().await?;
 
         if api_response.meta.rc != "ok" {
             return Err(UniFiError::ApiError(
@@ -568,14 +747,71 @@ impl UniFiClient {
             ));
         }
 
-        match api_response.data {
-            Some(data) => Ok(data),
-            None => Err(UniFiError::ApiError("No data returned from API".into())),
-        }
+        Ok(api_response.data.unwrap_or(serde_json::Value::Null))
     }
-}
 
-impl UniFiClient {
+    /// Sends a GET request and parses the standard UniFi API response.
+    ///
+    /// # Type Parameters
+    ///
+    /// - `T`: Query/body type to serialize.
+    /// - `R`: Response type to deserialize into.
+    ///
+    /// # Arguments
+    ///
+    /// * `endpoint` - The API endpoint path.
+    /// * `params` - Optional parameters sent as JSON.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails, authentication is invalid, or
+    /// the response cannot be deserialized into `R`.
+    pub async fn get<T, R>(&self, endpoint: &str, params: Option<T>) -> UniFiResult<R>
+    where
+        T: Serialize,
+        R: DeserializeOwned,
+    {
+        let value: serde_json::Value = self.request_json(Method::GET, endpoint, params).await?;
+
+        if value.is_null() {
+            return Err(UniFiError::ApiError("No data returned from API".into()));
+        }
+
+        let data = serde_json::from_value::<R>(value)?;
+        Ok(data)
+    }
+
+    /// Sends a POST request and parses the standard UniFi API response.
+    ///
+    /// # Type Parameters
+    ///
+    /// - `T`: Request body type to serialize.
+    /// - `R`: Response type to deserialize into.
+    ///
+    /// # Arguments
+    ///
+    /// * `endpoint` - The API endpoint path.
+    /// * `body` - Optional JSON body.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the request fails, authentication is invalid, or
+    /// the response cannot be deserialized into `R`.
+    pub async fn post<T, R>(&self, endpoint: &str, body: Option<T>) -> UniFiResult<R>
+    where
+        T: Serialize,
+        R: DeserializeOwned,
+    {
+        let value: serde_json::Value = self.request_json(Method::POST, endpoint, body).await?;
+
+        if value.is_null() {
+            return Err(UniFiError::ApiError("No data returned from API".into()));
+        }
+
+        let data = serde_json::from_value::<R>(value)?;
+        Ok(data)
+    }
+
     /// Core HTTP sender used by raw_request() and request().
     ///
     /// - Ensures authentication
@@ -619,7 +855,10 @@ impl UniFiClient {
 
         Ok(response)
     }
+}
 
+/// # Utility Methods
+impl UniFiClient {
     // Build the URL for an API endpoint using path segments to avoid trailing slash issues.
     fn api_url(&self, endpoint: &str) -> UniFiResult<Url> {
         let mut url = self.api_base_url.clone();

@@ -52,7 +52,7 @@ impl<'a> SiteApi<'a> {
 
         let endpoint = "/api/self/sites";
 
-        let sites: Vec<Site> = client.request(Method::GET, endpoint, None::<()>).await?;
+        let sites: Vec<Site> = client.get(endpoint, None::<()>).await?;
 
         Ok(sites)
     }
@@ -154,9 +154,7 @@ impl<'a> SiteApi<'a> {
 
         let endpoint = "/api/s/default/cmd/sitemgr";
 
-        let _: serde_json::Value = client
-            .request(Method::POST, endpoint, Some(create_data))
-            .await?;
+        let _: serde_json::Value = client.post(endpoint, Some(create_data)).await?;
 
         // The API doesn't return the created site, so we need to fetch it
         self.get_by_name(name).await
@@ -200,9 +198,7 @@ impl<'a> SiteApi<'a> {
 
         let endpoint = "/api/s/default/cmd/sitemgr";
 
-        let _: serde_json::Value = client
-            .request(Method::POST, endpoint, Some(update_data))
-            .await?;
+        let _: serde_json::Value = client.post(endpoint, Some(update_data)).await?;
 
         // The API doesn't return the updated site, so we need to fetch it
         self.get(site_id).await
@@ -243,9 +239,7 @@ impl<'a> SiteApi<'a> {
 
         let endpoint = "/api/s/default/cmd/sitemgr";
 
-        let _: serde_json::Value = client
-            .request(Method::POST, endpoint, Some(delete_data))
-            .await?;
+        let _: serde_json::Value = client.post(endpoint, Some(delete_data)).await?;
 
         Ok(())
     }
@@ -299,7 +293,7 @@ impl<'a> SiteApi<'a> {
         let site = self.client.site();
         let endpoint = format!("/api/s/{}/stat/health", site);
 
-        let stats: Vec<SiteStats> = client.request(Method::GET, &endpoint, None::<()>).await?;
+        let stats: Vec<SiteStats> = client.get(&endpoint, None::<()>).await?;
 
         stats
             .into_iter()
