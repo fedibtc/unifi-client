@@ -158,6 +158,25 @@ async fn test_login_no_cookies() {
 }
 
 #[tokio::test]
+async fn test_ensure_authenticated_with_empty_username() {
+    // Using the inert default client yields an empty username and no password.
+    // Calling any request path should fail fast in ensure_authenticated()
+    // with a configuration error for the username, before any network I/O.
+    let client = UniFiClient::default();
+
+    let result = client
+        .request_json::<()>(Method::GET, "/api/self", None)
+        .await;
+
+    match result {
+        Err(UniFiError::ConfigurationError(msg)) => {
+            assert_eq!(msg, "Username is required");
+        }
+        other => panic!("Expected ConfigurationError, got: {:?}", other),
+    }
+}
+
+#[tokio::test]
 async fn test_config_error() {
     // Test invalid URL
     let unifi_client = UniFiClient::builder()
@@ -192,5 +211,60 @@ async fn test_config_error() {
             assert_eq!(msg, "Username is required");
         }
         _ => panic!("Expected ConfigurationError"),
+    }
+}
+
+#[tokio::test]
+async fn test_builder_rejects_empty_username_and_password() {
+    // Empty username should be rejected before URL parsing/network.
+    let err = UniFiClient::builder()
+        .controller_url("https://example.com")
+        .username("")
+        .password("non-empty")
+        .build()
+        .await
+        .unwrap_err();
+    match err {
+        UniFiError::ConfigurationError(msg) => assert_eq!(msg, "Username is required"),
+        other => panic!("Expected ConfigurationError for username, got {other:?}"),
+    }
+
+    // Empty password should be rejected as well.
+    let err = UniFiClient::builder()
+        .controller_url("https://example.com")
+        .username("user")
+        .password("")
+        .build()
+        .await
+        .unwrap_err();
+    match err {
+        UniFiError::ConfigurationError(msg) => assert_eq!(msg, "Password is required"),
+        other => panic!("Expected ConfigurationError for password, got {other:?}"),
+    }
+
+    // Whitespace-only username should also be rejected.
+    let err = UniFiClient::builder()
+        .controller_url("https://example.com")
+        .username("   ")
+        .password("non-empty")
+        .build()
+        .await
+        .unwrap_err();
+    match err {
+        UniFiError::ConfigurationError(msg) => assert_eq!(msg, "Username is required"),
+        other => panic!("Expected ConfigurationError for username whitespace, got {other:?}"),
+    }
+
+    // Whitespace-only password should also be rejected.
+    let err = UniFiClient::builder()
+        .controller_url("https://example.com")
+        .username("user")
+        .password("   ")
+        .build()
+        .await
+        .unwrap_err();
+    match err {
+        UniFiError::ConfigurationError(msg) => assert_eq!(msg, "Password is required"),
+        other => panic!("Expected ConfigurationError for password whitespace, got {other:?}"),
     }
 }
