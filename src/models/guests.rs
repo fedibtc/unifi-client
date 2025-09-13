@@ -75,7 +75,7 @@ pub enum GuestEntry {
         #[serde(skip_serializing_if = "Option::is_none")]
         qos_rate_max_up: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        qos_usage_quota: Option<u64>,
+        qos_usage_quota: Option<i64>,
     },
     /// A guest authorization that has been authorized but not yet connected to
     /// the network or has expired
@@ -98,7 +98,7 @@ pub enum GuestEntry {
         #[serde(skip_serializing_if = "Option::is_none")]
         qos_rate_max_up: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        qos_usage_quota: Option<u64>,
+        qos_usage_quota: Option<i64>,
     },
     /// A newly authorized guest (response from authorize-guest command)
     New {
@@ -117,7 +117,7 @@ pub enum GuestEntry {
         #[serde(skip_serializing_if = "Option::is_none")]
         qos_rate_max_up: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        qos_usage_quota: Option<u64>,
+        qos_usage_quota: Option<i64>,
     },
 }
 
