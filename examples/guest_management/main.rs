@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|_| "https://unifi.example.com:8443".to_string());
     let username = env::var("UNIFI_USERNAME").unwrap_or_else(|_| "admin".to_string());
     let site = env::var("UNIFI_SITE").unwrap_or_else(|_| "default".to_string());
-    let verify_ssl = env::var("UNIFI_VERIFY_SSL")
+    let accept_invalid_certs = env::var("UNIFI_ACCEPT_INVALID_CERTS")
         .map(|v| v.to_lowercase() == "true")
         .unwrap_or(false);
 
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .username(&username)
         .password_from_env("UNIFI_PASSWORD")
         .site(&site)
-        .verify_ssl(verify_ssl)
+        .accept_invalid_certs(accept_invalid_certs)
         .build()
         .await?;
     println!("✅ Authentication successful!");

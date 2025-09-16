@@ -28,11 +28,11 @@ use crate::{models, UniFiError, UniFiResult};
 static UNIFI_CLIENT: Lazy<ArcSwap<UniFiClient>> =
     Lazy::new(|| ArcSwap::from_pointee(UniFiClient::default()));
 
-// Helper to create a reqwest client builder to ensure consistent configuration.
-fn reqwest_builder(timeout: Duration, verify_ssl: bool) -> reqwest::ClientBuilder {
+/// Helper to create a reqwest client builder to ensure consistent configuration.
+fn reqwest_builder(timeout: Duration, accept_invalid_certs: bool) -> reqwest::ClientBuilder {
     ReqwestClient::builder()
         .timeout(timeout)
-        .danger_accept_invalid_certs(!verify_ssl)
+        .danger_accept_invalid_certs(accept_invalid_certs)
         .redirect(Policy::none())
         .cookie_store(true)
         .user_agent(concat!("unifi-client/", env!("CARGO_PKG_VERSION")))
@@ -65,6 +65,7 @@ fn reqwest_builder(timeout: Duration, verify_ssl: bool) -> reqwest::ClientBuilde
 ///     .controller_url("https://controller.example:8443")
 ///     .username("admin")
 ///     .password("secret")
+///     // .accept_invalid_certs(true) // only for lab/test
 ///     .build()
 ///     .await?;
 /// let _prev = unifi_client::initialize(client);
@@ -137,7 +138,9 @@ pub struct UniFiClientBuilder {
     username: Option<String>,
     password: Option<SecretString>,
     site: Option<String>,
-    verify_ssl: bool,
+    /// When `true`, TLS certificates are **not** verified (dangerous).
+    /// Defaults to `false` (secure-by-default).
+    accept_invalid_certs: bool,
     timeout: Option<Duration>,
     http_client: Option<ReqwestClient>,
 }
@@ -220,17 +223,11 @@ impl UniFiClientBuilder {
         self
     }
 
-    /// Sets whether to verify SSL certificates.
+    /// Accept invalid/self-signed TLS certificates (dangerous).
     ///
-    /// # Arguments
-    ///
-    /// * `verify` - When `true`, SSL certificates are validated.
-    ///
-    /// # Returns
-    ///
-    /// - `Self`: The builder for method chaining.
-    pub fn verify_ssl(mut self, verify: bool) -> Self {
-        self.verify_ssl = verify;
+    /// Default is `false` (certificates are verified).
+    pub fn accept_invalid_certs(mut self, accept: bool) -> Self {
+        self.accept_invalid_certs = accept;
         self
     }
 
@@ -286,7 +283,7 @@ impl UniFiClientBuilder {
     ///     .controller_url("https://controller.example:8443")
     ///     .username("admin")
     ///     .password("secret")
-    ///     .verify_ssl(true)
+    ///     // .accept_invalid_certs(true) // only for lab/test
     ///     .build()
     ///     .await?;
     /// # Ok(())
@@ -319,7 +316,7 @@ impl UniFiClientBuilder {
         let http_client = if let Some(custom_client) = self.http_client {
             custom_client
         } else {
-            reqwest_builder(timeout, self.verify_ssl)
+            reqwest_builder(timeout, self.accept_invalid_certs)
                 .build()
                 .map_err(|e| {
                     UniFiError::ConfigurationError(format!("Failed to create HTTP client: {e}"))
@@ -431,7 +428,8 @@ impl fmt::Debug for UniFiClient {
 impl Default for UniFiClient {
     fn default() -> Self {
         let timeout = Duration::from_secs(30);
-        let http_client = reqwest_builder(timeout, true)
+        // Secure by default: do NOT accept invalid certs.
+        let http_client = reqwest_builder(timeout, false)
             .build()
             .expect("Failed to create default HTTP client");
 

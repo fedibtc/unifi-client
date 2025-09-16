@@ -22,7 +22,7 @@ export UNIFI_CONTROLLER="https://unifi.example.com:8443"
 export UNIFI_USERNAME="admin"
 export UNIFI_PASSWORD="password"
 export UNIFI_SITE="default"
-export UNIFI_VERIFY_SSL="false"
+export UNIFI_ACCEPT_INVALID_CERTS="true"
 
 # Run the example
 cargo run
@@ -43,7 +43,7 @@ cargo run
 - `UNIFI_USERNAME`: Username for authentication (default: "admin")
 - `UNIFI_PASSWORD`: Password for authentication (optional, will prompt if not set)
 - `UNIFI_SITE`: Site to manage guests for (default: "default")
-- `UNIFI_VERIFY_SSL`: Whether to verify SSL certificates (default: false)
+- `UNIFI_ACCEPT_INVALID_CERTS`: Whether to accept invalid SSL certificates (default: false)
 
 ## Menu Options
 

@@ -40,7 +40,8 @@ async fn main() -> UniFiResult<()> {
         .username(&cli.username)
         .password(&cli.password)
         .site("default")
-        .verify_ssl(false)
+        // Dangerous, only use for lab environments or testing
+        .accept_invalid_certs(true)
         .build()
         .await
         .expect("Failed to build UniFiClient");
