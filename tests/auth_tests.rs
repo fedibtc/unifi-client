@@ -65,7 +65,7 @@ async fn test_failed_login_invalid_credentials() -> Result<(), UniFiError> {
             .username("test-user")
             .password("wrong-password")
             .site("default")
-            .verify_ssl(false)
+            .accept_invalid_certs(false)
             .build()
             .await;
 
@@ -103,7 +103,7 @@ async fn test_login_server_error() {
             .username("test-user")
             .password("test-password")
             .site("default")
-            .verify_ssl(false)
+            .accept_invalid_certs(false)
             .build()
             .await;
 
@@ -143,7 +143,7 @@ async fn test_login_no_cookies() {
             .username("test-user")
             .password("test-password")
             .site("default")
-            .verify_ssl(false)
+            .accept_invalid_certs(false)
             .build()
             .await;
 
@@ -184,7 +184,7 @@ async fn test_config_error() {
         .username("test-user")
         .password("test-password")
         .site("default")
-        .verify_ssl(false)
+        .accept_invalid_certs(false)
         .build()
         .await;
 
