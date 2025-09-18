@@ -124,7 +124,7 @@ struct AppConfig {
     unifi_controller_url: String,
     unifi_username: String,
     unifi_site: String,
-    verify_ssl: bool,
+    unifi_accept_invalid_certs: bool,
     max_duration_minutes: u32,
     max_data_quota_megabytes: u64,
 }
@@ -257,7 +257,7 @@ async fn main() {
         .username(&config.unifi_username)
         .password_from_env("UNIFI_PASSWORD")
         .site(&config.unifi_site)
-        .verify_ssl(config.verify_ssl)
+        .accept_invalid_certs(config.unifi_accept_invalid_certs)
         .build()
         .await
         .expect("Failed to build UniFiClient");
