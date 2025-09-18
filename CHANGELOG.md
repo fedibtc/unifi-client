@@ -11,41 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- *(client,api,examples,tests)* [**breaking**] add request_json + get/post; change raw_request to return Response
-- *(client)* add support for UniFi OS Server
-- *(guests)* add optional QoS fields to GuestEntry variants
+- [**breaking**] Change raw_request() to return Response
+- [**breaking**] Rename raw_request() to request()
+- [**breaking**] Rename list filter from within() to within_hours()
+- Add new convenience methods request_json, get, and post
+- Add support for UniFi OS Server
+- Add support for QoS fields in GuestEntry
+- Use reqwest cookie store; remove manual cookie header management
+- Add default-client feature flag and refactor global default instance
 
 ### Fixed
 
-- *(security)* bump on-headers dep in hotspot example to resolve CVE-2025-7339
-- *(security)* bump brace-expansion dep in hotspot example to resolve CVE-2025-5889
-- *(client)* UniFi accepts and returns negative qos_usage_quota values
+- Bump on-headers dep in hotspot example to resolve CVE-2025-7339
+- Bump brace-expansion dep in hotspot example to resolve CVE-2025-5889
 
 ### Other
 
-- *(examples)* bump react-router for hotspot example
-- *(examples)* replace verify_ssl with accept_invalid_certs
-- *(client)* harden auth state and request retry handling
-- *(client)* Rename verify_ssl to accept_invalid_certs and make default false
-- *(client)* improve runtime and builder-time config validation efficiency
-- *(readme)* custom HTTP client example should include cookie store and disabled redirects
-- *(client)* add request builder and simplify UniFiClient struct
-- *(client)* add default-client feature flag and refactor global default instance
-- *(client)* add test for negative qos_usage_quota in guests list
-- *(client)* use http method enum in raw_request()
-- *(client)* add send_http and route raw_request/request through it to deduplicate request logic
-- deduplicate and refactor auth and guests tests
-- minor test name change
-- *(client)* rename list filter from within() to within_hours()
-- *(client)* update login/auth tests for UniFi OS Server
-- add .direnv to gitignore to speed up IDE file search
-- *(client)* use reqwest cookie store; remove manual cookie header
-- *(examples)* fix linting and example dependency issues
-- *(deps)* Pin wiremock version to ensure rustc 1.74 MSRV
-- *(readme)* update MSRV section to Rust 1.74
-- *(cargo)* set rust-version to 1.74 (edition 2021)
-- *(deps)* Update vite, ts, tailwind, and react in hotspot example frontend
-- *(nix)* bump nixpkgs to 25.05 and update devShell toolchain
+- Harden auth state and request retry handling
+- Rename verify_ssl to accept_invalid_certs and make default false to improve security
+- Improve runtime and builder-time config validation efficiency
+- Updated docs and examples based on refactoring
+- Deduplicate request logic by routing get(), post(), and request_json() through request()
+- Improve and expand test coverage for auth, builder, and request
+- Document and set MSRV to Rust 1.74
+- Update vite, ts, tailwind, react, and react-router in hotspot example frontend
+- Bump nixpkgs to 25.05 and update devShell toolchain
 
 ## [0.3.2](https://github.com/fedibtc/unifi-client/compare/v0.3.1...v0.3.2) - 2025-04-26
 
