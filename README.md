@@ -48,7 +48,7 @@ async fn main() -> Result<(), UniFiError> {
         .username("your_username") // Replace!
         .password_from_env("UNIFI_PASSWORD") // Best practice
         .site("default")  // Or your site ID
-        .verify_ssl(false)  // Set to `true` if you have valid SSL
+        .accept_invalid_certs(false)  // Set to `true` if you don't have valid SSL certificates
         .build()
         .await?;
     unifi_client::initialize(client);
