@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/fedibtc/unifi-client/compare/v0.3.2...v0.4.0) - 2025-09-18
+
+### Added
+
+- [**breaking**] Change raw_request() to return Response
+- [**breaking**] Rename raw_request() to request()
+- [**breaking**] Rename list filter from within() to within_hours()
+- Add new convenience methods request_json, get, and post
+- Add support for UniFi OS Server
+- Add support for QoS fields in GuestEntry
+- Use reqwest cookie store; remove manual cookie header management
+- Add default-client feature flag and refactor global default instance
+
+### Fixed
+
+- Bump on-headers dep in hotspot example to resolve CVE-2025-7339
+- Bump brace-expansion dep in hotspot example to resolve CVE-2025-5889
+
+### Other
+
+- Harden auth state and request retry handling
+- Rename verify_ssl to accept_invalid_certs and make default false to improve security
+- Improve runtime and builder-time config validation efficiency
+- Updated docs and examples based on refactoring
+- Deduplicate request logic by routing get(), post(), and request_json() through request()
+- Improve and expand test coverage for auth, builder, and request
+- Document and set MSRV to Rust 1.74
+- Update vite, ts, tailwind, react, and react-router in hotspot example frontend
+- Bump nixpkgs to 25.05 and update devShell toolchain
+
 ## [0.3.2](https://github.com/fedibtc/unifi-client/compare/v0.3.1...v0.3.2) - 2025-04-26
 
 ### Other
