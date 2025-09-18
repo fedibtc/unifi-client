@@ -68,11 +68,10 @@ pub async fn setup_probe_and_login(server: &MockServer, kind: TestControllerKind
             resp = resp
                 .set_body_json(json!({ "meta": { "rc": "ok" }, "data": [] }))
                 .insert_header("set-cookie", "unifises=test-cookie")
-                .insert_header("x-csrf-token", "test-csrf");
         }
         TestControllerKind::Os => {
             resp = resp
-                .insert_header("set-cookie", "TOKEN=test-token; Path=/")
+                .insert_header("set-cookie", "TOKEN=test-token; path=/")
                 .insert_header("x-csrf-token", "test-csrf");
         }
     }
@@ -98,7 +97,7 @@ pub fn api_path(kind: TestControllerKind, endpoint: &str) -> String {
 
 pub fn csrf_header_for(kind: TestControllerKind) -> Option<(&'static str, &'static str)> {
     match kind {
-        TestControllerKind::Network => Some(("x-csrf-token", "test-csrf")),
+        TestControllerKind::Network => None,
         TestControllerKind::Os => Some(("x-csrf-token", "test-csrf")),
     }
 }
