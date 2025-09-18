@@ -1,6 +1,6 @@
 [package]
 name = "unifi-client"
-version = "0.3.2"
+version = "0.4.0"
 edition = "2021"
 rust-version = "1.74"
 authors = ["Frank Hinek <frankhinek@users.noreply.github.com>"]
