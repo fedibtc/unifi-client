@@ -4,15 +4,11 @@ use std::sync::Arc;
 use serde_json::json;
 use tokio::sync::Barrier;
 use unifi_client::UniFiClient;
-use wiremock::matchers::{body_json, header, method, path};
+use wiremock::matchers::{body_json, method, path};
 use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 
 #[tokio::test]
 async fn test_concurrent_client_usage() -> Result<(), Box<dyn std::error::Error>> {
-    // Set up counter for authentication checks
-    let auth_check_count = Arc::new(AtomicUsize::new(0));
-    let auth_check_count_clone = Arc::clone(&auth_check_count);
-
     // Set up counter for login attempts
     let login_count = Arc::new(AtomicUsize::new(0));
     let login_count_clone = Arc::clone(&login_count);
@@ -38,83 +34,90 @@ async fn test_concurrent_client_usage() -> Result<(), Box<dyn std::error::Error>
                 }))
                 .insert_header("set-cookie", "unifises=test-cookie")
         })
-        .expect(1)
+        .expect(2)
         .mount(&mock_server)
         .await;
 
-    // Set up guest authorize mock
+    // Set up guest authorize mock: first call 401, then 200 with cookie asserted.
+    let authz_calls = Arc::new(AtomicUsize::new(0));
+    let authz_calls_clone = Arc::clone(&authz_calls);
     Mock::given(method("POST"))
         .and(path("/api/s/default/cmd/stamgr"))
-        .and(header("cookie", "unifises=test-cookie"))
         .and(body_json(json!({
             "cmd": "authorize-guest",
             "mac": "00:11:22:33:44:55",
             "minutes": 30,
             "ap_mac": "00:00:00:00:00:00",
         })))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "meta": { "rc": "ok" },
-            "data": [{
-                "_id": "guest1",
-                "mac": "00:11:22:33:44:55",
-                "authorized_by": "api",
-                "start": 1622548800,
-                "end": 1622550600,
-                "expired": false,
-                "site_id": "default"
-            }]
-        })))
-        .expect(1)
+        .respond_with(move |req: &Request| {
+            let prev = authz_calls_clone.fetch_add(1, Ordering::SeqCst);
+            if prev == 0 {
+                ResponseTemplate::new(401)
+            } else {
+                // After re-auth, cookie should be present.
+                assert_eq!(
+                    req.headers.get("cookie").and_then(|v| v.to_str().ok()),
+                    Some("unifises=test-cookie")
+                );
+                ResponseTemplate::new(200).set_body_json(json!({
+                    "meta": { "rc": "ok" },
+                    "data": [{
+                        "_id": "guest1",
+                        "mac": "00:11:22:33:44:55",
+                        "authorized_by": "api",
+                        "start": 1622548800,
+                        "end": 1622550600,
+                        "expired": false,
+                        "site_id": "default"
+                    }]
+                }))
+            }
+        })
+        .expect(2)
         .mount(&mock_server)
         .await;
 
     // Set up guest list mock
+    let list_calls = Arc::new(AtomicUsize::new(0));
+    let list_calls_clone = Arc::clone(&list_calls);
     Mock::given(method("GET"))
         .and(path("/api/s/default/stat/guest"))
-        .and(header("cookie", "unifises=test-cookie"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "meta": { "rc": "ok" },
-            "data": [
-                {
-                    "_id": "guest1",
-                    "mac": "00:11:22:33:44:55",
-                    "authorized_by": "api",
-                    "start": 1622548800,
-                    "end": 1622550600,
-                    "expired": false,
-                    "site_id": "default"
-                },
-                {
-                    "_id": "guest2",
-                    "mac": "aa:bb:cc:dd:ee:ff",
-                    "authorized_by": "api",
-                    "start": 1622548800,
-                    "end": 1622550600,
-                    "expired": true,
-                    "site_id": "default",
-                    "unauthorized_by": "api"
-                }
-            ]
-        })))
-        .expect(2) // Called twice in the test
-        .mount(&mock_server)
-        .await;
-
-    // Mock auth check endpoint with callback to count requests
-    Mock::given(method("GET"))
-        .and(path("/api/self"))
-        .respond_with(move |_: &Request| {
-            // Increment the counter for each auth check
-            auth_check_count_clone.fetch_add(1, Ordering::SeqCst);
-
-            ResponseTemplate::new(200)
-                .set_body_json(json!({
+        .respond_with(move |req: &Request| {
+            let prev = list_calls_clone.fetch_add(1, Ordering::SeqCst);
+            if prev == 0 {
+                ResponseTemplate::new(401)
+            } else {
+                assert_eq!(
+                    req.headers.get("cookie").and_then(|v| v.to_str().ok()),
+                    Some("unifises=test-cookie")
+                );
+                ResponseTemplate::new(200).set_body_json(json!({
                     "meta": { "rc": "ok" },
-                    "data": []
+                    "data": [
+                        {
+                            "_id": "guest1",
+                            "mac": "00:11:22:33:44:55",
+                            "authorized_by": "api",
+                            "start": 1622548800,
+                            "end": 1622550600,
+                            "expired": false,
+                            "site_id": "default"
+                        },
+                        {
+                            "_id": "guest2",
+                            "mac": "aa:bb:cc:dd:ee:ff",
+                            "authorized_by": "api",
+                            "start": 1622548800,
+                            "end": 1622550600,
+                            "expired": true,
+                            "site_id": "default",
+                            "unauthorized_by": "api"
+                        }
+                    ]
                 }))
-                .insert_header("set-cookie", "unifises=test-cookie")
+            }
         })
-        .expect(3)
+        .expect(3) // two during concurrent tasks + one after
         .mount(&mock_server)
         .await;
 
@@ -131,13 +134,6 @@ async fn test_concurrent_client_usage() -> Result<(), Box<dyn std::error::Error>
         login_count.load(Ordering::SeqCst),
         1,
         "Client should authenticate once during build"
-    );
-
-    // Verify that the auth check was not called yet
-    assert_eq!(
-        auth_check_count.load(Ordering::SeqCst),
-        0,
-        "Should not have called auth check yet"
     );
 
     // Create a barrier to ensure both tasks start at the same time
@@ -177,40 +173,23 @@ async fn test_concurrent_client_usage() -> Result<(), Box<dyn std::error::Error>
     assert_eq!(authorize_guest.mac(), "00:11:22:33:44:55");
     assert_eq!(list_guests.len(), 2, "Should have received 2 guests");
 
-    // Verify authentication was shared
-    // The auth check should have been called at most once per request
-    let concurrent_auth_check_count = auth_check_count.load(Ordering::SeqCst);
-    assert!(
-        concurrent_auth_check_count <= 2,
-        "Auth check called too many times ({}), should be at most once per task",
-        concurrent_auth_check_count
-    );
-
     // Verify login was only called once (initial authentication)
     // This confirms the auth state is properly shared
     let concurrent_login_count = login_count.load(Ordering::SeqCst);
     assert_eq!(
-        concurrent_login_count, 1,
-        "Login should only be called once during initial authentication"
+        concurrent_login_count, 2,
+        "Should re-login exactly once on 401"
     );
 
     // Verify the authentication is only happening when needed
     // Make one more request to confirm auth is reused
     client.guests().list().send().await?;
 
-    // Verify one additional auth check was performed
-    let final_auth_check_count = auth_check_count.load(Ordering::SeqCst);
-    assert_eq!(
-        concurrent_auth_check_count + 1,
-        final_auth_check_count,
-        "Auth check should have been called once more for the third request"
-    );
-
     // Verify no additional logins were required
     let final_login_count = login_count.load(Ordering::SeqCst);
     assert_eq!(
-        final_login_count, 1,
-        "No additional logins should occur for subsequent requests"
+        final_login_count, 2,
+        "No additional logins should occur beyond one re-auth"
     );
 
     Ok(())

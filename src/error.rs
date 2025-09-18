@@ -20,6 +20,10 @@ pub enum UniFiError {
     #[error("URL parse error: {0}")]
     UrlParseError(#[from] UrlParseError),
 
+    /// The API endpoint/path string is invalid.
+    #[error("Invalid endpoint: {0}")]
+    InvalidEndpoint(String),
+
     /// Error serializing or deserializing JSON.
     #[error("Serialization error: {0}")]
     SerializationError(#[from] serde_json::Error),
