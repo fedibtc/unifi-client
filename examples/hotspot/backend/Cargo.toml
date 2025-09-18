@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-unifi-client = { git = "https://github.com/fedibtc/unifi-client.git", rev = "dca5433d3172b8565e029fc8c6044c4c4eb54234" }
 axum = "0.8"
 chrono = { version = "0.4", features = ["clock"] }
 config = "0.15"
@@ -17,5 +16,6 @@ tokio = { version = "1", features = ["rt", "macros", "net", "sync", "time"] }
 tower-http = { version = "0.6", features = ["cors", "fs"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+unifi-client = { path = "../../.." }
 validator = { version = "0.20", features = ["derive"] }
 validator_derive = "0.20"
